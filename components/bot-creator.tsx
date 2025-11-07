@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TechnicalIndicators } from "@/components/technical-indicators"
-import { CreditManager } from "@/components/credit-manager"
 import { AdvancedPromptEditor } from "@/components/advanced-prompt-editor"
 import { saveBotConfig, type BotConfig } from "@/lib/bot-storage"
 import { storeAgentWalletPassword } from "@/lib/bot-vault"
@@ -1114,7 +1113,6 @@ export function BotCreator({ onClose, onCreate }: BotCreatorProps) {
                 CANCEL
               </button>
             </div>
-          </div>
         </div>
       </div>
     </div>
