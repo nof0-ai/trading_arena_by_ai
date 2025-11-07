@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { XIcon, ExternalLink, Wallet, Shield, AlertTriangle, Plus, TestTube, ChevronsUpDown, Check } from "lucide-react"
+import { XIcon, Wallet, Shield, AlertTriangle, Plus, TestTube, ChevronsUpDown, Check } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -9,7 +9,7 @@ import { TechnicalIndicators } from "@/components/technical-indicators"
 import { CreditManager } from "@/components/credit-manager"
 import { AdvancedPromptEditor } from "@/components/advanced-prompt-editor"
 import { saveBotConfig, type BotConfig } from "@/lib/bot-storage"
-import { storeAgentWalletPassword, storeOpenRouterApiKey } from "@/lib/bot-vault"
+import { storeAgentWalletPassword } from "@/lib/bot-vault"
 import { useWeb3 } from "@/components/web3-provider"
 import { createClient } from "@/lib/supabase/client"
 import { approveAgentWithWeb3Wallet, getAgentWalletsFromHyperliquid, revokeAgentWithWeb3Wallet, type AgentWallet } from "@/lib/hyperliquid-agent"
@@ -216,7 +216,6 @@ export function BotCreator({ onClose, onCreate }: BotCreatorProps) {
     tradingPairs: "",
     apiKey: "",
     apiSecret: "",
-    openRouterApiKey: "",
     useApiWallet: false,
     apiWalletId: "",
     apiWalletPassword: "",
@@ -229,7 +228,6 @@ export function BotCreator({ onClose, onCreate }: BotCreatorProps) {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isApproving, setIsApproving] = useState(false)
-  const [step, setStep] = useState<"config" | "openrouter">("config")
   const [apiWallets, setApiWallets] = useState<EnhancedApiWallet[]>([])
   const [approvalError, setApprovalError] = useState("")
   const [showCreateWallet, setShowCreateWallet] = useState(false)
@@ -505,12 +503,6 @@ export function BotCreator({ onClose, onCreate }: BotCreatorProps) {
       return
     }
 
-    if (!formData.openRouterApiKey) {
-      alert("Please add your OpenRouter API key")
-      return
-    }
-
-
     if (!address) {
       alert("Wallet not connected")
       return
@@ -575,19 +567,6 @@ export function BotCreator({ onClose, onCreate }: BotCreatorProps) {
 
       const botId = result.botId
 
-      // Store OpenRouter API key in Vault
-      if (formData.openRouterApiKey) {
-        const apiKeyResult = await storeOpenRouterApiKey(botId, formData.openRouterApiKey)
-        if (!apiKeyResult.success) {
-          // Clean up bot if API key storage fails
-          const supabase = createClient()
-          await supabase.from("encrypted_bots").delete().eq("id", botId)
-          alert(`Failed to store OpenRouter API key: ${apiKeyResult.error}`)
-          setIsSubmitting(false)
-          return
-        }
-      }
-
       // If using API wallet, store password directly in Vault using key_{address}_{botname}
       if (formData.useApiWallet && formData.apiWalletId && formData.apiWalletPassword) {
         const selectedWallet = apiWallets.find((w) => w.id === formData.apiWalletId)
@@ -599,13 +578,9 @@ export function BotCreator({ onClose, onCreate }: BotCreatorProps) {
             formData.apiWalletPassword
           )
           if (!passwordResult.success) {
-            // Clean up bot and API key if password storage fails
+            // Clean up bot if password storage fails
             const supabase = createClient()
             await supabase.from("encrypted_bots").delete().eq("id", botId)
-            if (formData.openRouterApiKey) {
-              const { deleteOpenRouterApiKey } = await import("@/lib/bot-vault")
-              await deleteOpenRouterApiKey(botId)
-            }
             alert(`Failed to store agent wallet password: ${passwordResult.error}`)
             setIsSubmitting(false)
             return
@@ -631,38 +606,16 @@ export function BotCreator({ onClose, onCreate }: BotCreatorProps) {
     })
   }
 
-  const handleNextToOpenRouter = () => {
-    if (!formData.name || !formData.model || !formData.prompt) {
-      alert("Please fill in all required fields")
-      return
-    }
-    setStep("openrouter")
-  }
-
-  const handleNextToCredits = () => {
-    if (!formData.openRouterApiKey) {
-      alert("Please add your OpenRouter API key")
-      return
-    }
-    // Skip credits page, go directly to create bot
-    handleSubmit()
-  }
-
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white border-2 border-black max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="border-b-2 border-black p-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold font-mono">
-            {step === "config" && "CREATE NEW TRADING BOT"}
-            {step === "openrouter" && "SETUP OPENROUTER API"}
-          </h2>
+          <h2 className="text-xl font-bold font-mono">CREATE NEW TRADING BOT</h2>
           <button onClick={onClose} className="hover:bg-gray-100 p-1">
             <XIcon className="size-5" />
           </button>
         </div>
-
-        {step === "config" && (
-          <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6">
             {/* Membership Check - Link to pricing page if not a member */}
             {isCheckingMembership ? (
               <div className="border-2 border-yellow-300 bg-yellow-50 p-4 rounded">
@@ -1151,79 +1104,18 @@ export function BotCreator({ onClose, onCreate }: BotCreatorProps) {
 
             <div className="flex gap-2 pt-4">
               <button
-                onClick={handleNextToOpenRouter}
-                className="flex-1 border-2 border-black bg-black text-white px-4 py-3 text-sm hover:bg-gray-800"
+                onClick={handleSubmit}
+                disabled={isSubmitting || canCreate === false}
+                className="flex-1 border-2 border-black bg-black text-white px-4 py-3 text-sm hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                NEXT: SETUP API
+                {isSubmitting ? "CREATING..." : canCreate === false ? "MEMBERSHIP REQUIRED" : "CREATE BOT"}
               </button>
               <button onClick={onClose} className="border-2 border-black bg-white px-4 py-3 text-sm hover:bg-gray-100">
                 CANCEL
               </button>
             </div>
           </div>
-        )}
-
-        {step === "openrouter" && (
-          <div className="p-6 space-y-6">
-            <div className="border-2 border-blue-500 bg-blue-50 p-4 space-y-3">
-              <div className="text-sm font-bold">WHY OPENROUTER?</div>
-              <p className="text-xs text-gray-700">
-                OpenRouter provides unified access to multiple AI models (GPT, Claude, Gemini, etc.) through a single
-                API. This allows your bot to use the AI model you selected.
-              </p>
-              <a
-                href="https://openrouter.ai/keys"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
-              >
-                Get your API key from OpenRouter
-                <ExternalLink className="size-3" />
-              </a>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold">OPENROUTER API KEY *</label>
-              <Input
-                type="password"
-                value={formData.openRouterApiKey}
-                onChange={(e) => setFormData({ ...formData, openRouterApiKey: e.target.value })}
-                placeholder="sk-or-v1-..."
-                className="font-mono border-2 border-black"
-              />
-              <p className="text-xs text-gray-500">
-                Your API key will be encrypted and stored securely. It's used to access AI models for trading decisions.
-              </p>
-            </div>
-
-            <div className="border-2 border-yellow-500 bg-yellow-50 p-4 space-y-2">
-              <div className="text-xs font-bold">PRICING ESTIMATE</div>
-              <div className="text-xs text-gray-700">
-                <div>• GPT-4: ~$0.03 per 1K tokens</div>
-                <div>• Claude Sonnet: ~$0.003 per 1K tokens</div>
-                <div>• Gemini Pro: ~$0.001 per 1K tokens</div>
-                <div className="mt-2">Estimated cost: $5-20 per day depending on trading frequency</div>
-              </div>
-            </div>
-
-            <div className="flex gap-2 pt-4">
-              <button
-                onClick={() => setStep("config")}
-                className="border-2 border-black bg-white px-4 py-3 text-sm hover:bg-gray-100"
-              >
-                BACK
-              </button>
-              <button
-                onClick={handleNextToCredits}
-                disabled={isSubmitting || canCreate === false}
-                className="flex-1 border-2 border-black bg-black text-white px-4 py-3 text-sm hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? "CREATING..." : canCreate === false ? "MEMBERSHIP REQUIRED" : "CREATE BOT"}
-              </button>
-            </div>
-          </div>
-        )}
-
+        </div>
       </div>
     </div>
   )
