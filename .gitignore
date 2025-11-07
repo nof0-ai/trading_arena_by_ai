@@ -45,7 +45,7 @@ pm2-out.log
 .pm2/
 
 
-supabase
+/supabase
 logs
 scripts
 funcs-ts
