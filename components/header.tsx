@@ -1,4 +1,6 @@
 "use client"
+
+import Image from "next/image"
 import Link from "next/link"
 
 export function Header() {
@@ -8,6 +10,7 @@ export function Header() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-8">
             <Link href="/" className="flex items-center gap-2">
+              <Image src="/logo.png" alt="Nof0 AI logo" width={40} height={40} className="h-10 w-10" />
               <div className="text-2xl font-bold font-mono tracking-tight">
                 <span className="text-black">Alpha</span>
               </div>
