@@ -6,6 +6,48 @@ import { BotCreator } from "@/components/bot-creator"
 import { listUserBots, deleteBotConfig, type EncryptedBot } from "@/lib/bot-storage"
 import { useWeb3 } from "@/components/web3-provider"
 import { createClient } from "@/lib/supabase/client"
+
+type SupabaseClient = ReturnType<typeof createClient>
+
+async function ensureSupabaseUserForAddress(supabase: SupabaseClient, address?: string | null) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (user) {
+    return user
+  }
+
+  if (!address) {
+    return null
+  }
+
+  const walletEmail = `${address.toLowerCase()}@wallet.local`
+
+  const signInResult = await supabase.auth.signInWithPassword({
+    email: walletEmail,
+    password: address,
+  })
+
+  if (!signInResult.error && signInResult.data.user) {
+    return signInResult.data.user
+  }
+
+  if (signInResult.error && !signInResult.error.message.includes("Invalid login credentials")) {
+    return null
+  }
+
+  const signUpResult = await supabase.auth.signUp({
+    email: walletEmail,
+    password: address,
+  })
+
+  if (signUpResult.error) {
+    return null
+  }
+
+  return signUpResult.data.user ?? null
+}
 import { getActiveSubscriptionCount } from "@/lib/stripe"
 
 interface BotSidebarProps {
@@ -43,8 +85,8 @@ export function BotSidebar({ selectedBotId, onSelectBot }: BotSidebarProps) {
       setBots(result.bots)
       
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      
+      const user = await ensureSupabaseUserForAddress(supabase, address)
+
       if (user) {
         const testnetStatus: Record<string, boolean> = {}
         
