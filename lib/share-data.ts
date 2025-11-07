@@ -6,11 +6,9 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 export type ShareType = "bot" | "trade" | "analysis"
 
 const modelAssets: Record<string, { icon: string; image: string }> = {
-  "gpt-4": { icon: "🟢", image: "/openai.png" },
-  "gpt-5": { icon: "🟢", image: "/openai.png" },
+   
   gpt: { icon: "🟢", image: "/openai.png" },
   claude: { icon: "🟠", image: "/claude-color.png" },
-  "claude-sonnet": { icon: "🟠", image: "/claude-color.png" },
   gemini: { icon: "🔷", image: "/gemini-color.png" },
   grok: { icon: "⚫", image: "/grok.png" },
   deepseek: { icon: "🔵", image: "/deepseek-color.png" },
@@ -22,15 +20,42 @@ const defaultModelMetadata: { icon: string; image: string } = {
   image: "/placeholder-logo.png",
 }
 
+function normalizeAssetPath(asset: string | undefined) {
+  if (!asset) {
+    return defaultModelMetadata.image
+  }
+
+  const trimmed = asset.trim()
+  if (trimmed.length === 0) {
+    return defaultModelMetadata.image
+  }
+
+  const lower = trimmed.toLowerCase()
+  if (lower.startsWith("http://") || lower.startsWith("https://")) {
+    return trimmed
+  }
+
+  const withoutPublicPrefix = trimmed.replace(/^public\//i, "")
+  const withoutLeadingSlash = withoutPublicPrefix.replace(/^\/+/, "")
+
+  return `/${withoutLeadingSlash}`
+}
+
 function getModelMetadata(model: string | undefined) {
   if (!model) return defaultModelMetadata
   const modelLower = model.toLowerCase()
   for (const [key, value] of Object.entries(modelAssets)) {
     if (modelLower.includes(key)) {
-      return value
+      return {
+        icon: value.icon,
+        image: normalizeAssetPath(value.image),
+      }
     }
   }
-  return defaultModelMetadata
+  return {
+    icon: defaultModelMetadata.icon,
+    image: normalizeAssetPath(defaultModelMetadata.image),
+  }
 }
 
 export interface ShareBotMetrics {
