@@ -710,14 +710,14 @@ export function BotCreator({ onClose, onCreate }: BotCreatorProps) {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold">TRADING PAIRS (comma separated)</label>
+              <label className="text-xs font-bold">TRADING PAIRS (only one coin)</label>
               <Input
                 value={formData.tradingPairs}
                 onChange={(e) => setFormData({ ...formData, tradingPairs: e.target.value })}
-                placeholder="e.g., BTC, ETH, SOL, XRP"
+                placeholder="only supported pairs: BTC, ETH, SOL"
                 className="font-mono border-2 border-black"
               />
-              <p className="text-xs text-gray-500">Leave empty to trade all available pairs</p>
+              <p className="text-xs text-gray-500">only supported pairs: BTC, ETH, SOL</p>
             </div>
 
             <div className="space-y-2">
