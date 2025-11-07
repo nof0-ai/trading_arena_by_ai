@@ -6,7 +6,7 @@
       "esnext"
     ],
     "allowJs": true,
-    "baseUrl": ".",
+    "baseUrl": ".", 
     "target": "ES6",
     "skipLibCheck": true,
     "strict": true,
