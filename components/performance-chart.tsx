@@ -172,7 +172,7 @@ export function PerformanceChart() {
     return (
       <div className="relative h-[500px] flex items-center justify-center">
         <div className="text-center">
-          <div className="font-mono text-sm text-gray-600">No public bots found</div>
+          <div className="font-mono text-sm text-gray-600">No public bots Trading</div>
         </div>
       </div>
     )
