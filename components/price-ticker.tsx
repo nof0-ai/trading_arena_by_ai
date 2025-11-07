@@ -40,7 +40,7 @@ export function PriceTicker() {
     value: 18945.47,
     change: 89.41,
     isTestnet: false,
-    image: "/placeholder-logo.png",
+    image: "/deepseek-color.png",
   })
   const [bottomModel, setBottomModel] = useState({
     name: "GEMINI 2.5 PRO",
@@ -48,7 +48,7 @@ export function PriceTicker() {
     value: 3003.51,
     change: -69.96,
     isTestnet: false,
-    image: "/placeholder-logo.png",
+    image: "/gemini-color.png",
   })
   const isInitialLoadRef = useRef(true)
 

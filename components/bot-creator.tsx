@@ -735,34 +735,7 @@ export function BotCreator({ onClose, onCreate }: BotCreatorProps) {
               <p className="text-xs text-gray-500">USD value per trade. Minimum $11 (Hyperliquid requirement).</p>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold">MAX ORDER SIZE (USD) - OPTIONAL</label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.maxOrderSize}
-                onChange={(e) => setFormData({ ...formData, maxOrderSize: e.target.value })}
-                placeholder="e.g., 1000 (leave empty for no limit)"
-                className="font-mono border-2 border-black"
-              />
-              <p className="text-xs text-gray-500">Maximum USD value per order. Orders exceeding this limit will be rejected.</p>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold">MAX POSITION SIZE (USD) - OPTIONAL</label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.maxPositionSize}
-                onChange={(e) => setFormData({ ...formData, maxPositionSize: e.target.value })}
-                placeholder="e.g., 5000 (leave empty for no limit)"
-                className="font-mono border-2 border-black"
-              />
-              <p className="text-xs text-gray-500">Maximum USD value per side (long or short). Positions exceeding this limit will be rejected.</p>
-            </div>
-
+             
             <div className="space-y-2">
               <label className="text-xs font-bold">SLIPPAGE (%) - OPTIONAL</label>
               <Input

@@ -373,43 +373,6 @@ export function BotSettings({ botId, botConfig, onUpdate }: BotSettingsProps) {
             </p>
           </div>
 
-          <div>
-            <Label htmlFor="max-order-size" className="font-mono text-sm">
-              MAX ORDER SIZE (USD) - OPTIONAL
-            </Label>
-            <Input
-              id="max-order-size"
-              type="number"
-              min="0"
-              step="0.01"
-              value={formData.maxOrderSize}
-              onChange={(e) => setFormData({ ...formData, maxOrderSize: e.target.value })}
-              className="font-mono mt-1"
-              placeholder="e.g., 1000 (leave empty for no limit)"
-            />
-            <p className="text-xs text-gray-500 font-mono mt-1">
-              Maximum USD value per order. Orders exceeding this limit will be rejected.
-            </p>
-          </div>
-
-          <div>
-            <Label htmlFor="max-position-size" className="font-mono text-sm">
-              MAX POSITION SIZE (USD) - OPTIONAL
-            </Label>
-            <Input
-              id="max-position-size"
-              type="number"
-              min="0"
-              step="0.01"
-              value={formData.maxPositionSize}
-              onChange={(e) => setFormData({ ...formData, maxPositionSize: e.target.value })}
-              className="font-mono mt-1"
-              placeholder="e.g., 5000 (leave empty for no limit)"
-            />
-            <p className="text-xs text-gray-500 font-mono mt-1">
-              Maximum USD value per side (long or short). Positions exceeding this limit will be rejected.
-            </p>
-          </div>
 
           <div>
             <Label htmlFor="slippage" className="font-mono text-sm">
