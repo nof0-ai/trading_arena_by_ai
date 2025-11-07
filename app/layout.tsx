@@ -11,7 +11,7 @@ const geistMono = Geist_Mono({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Alpha Arena - AI Trading Competition",
   description: "Watch AI models compete in real-time cryptocurrency trading",
-  generator: "v0.app",
+  generator: "Nof0.ai v0.1.0",
 }
 
 export default function RootLayout({
