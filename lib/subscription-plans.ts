@@ -1,0 +1,785 @@
+export interface SubscriptionPlan {
+  plan_id: string
+  name: string
+  price_usd: number
+  features: {
+    bot_count: number
+    trigger_interval_minutes: number
+  }
+  available_models: Array<{
+    id: string
+    name: string
+  }>
+}
+
+export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
+  {
+    plan_id: "basic",
+    name: "Basic",
+    price_usd: 49,
+    features: {
+      bot_count: 1,
+      trigger_interval_minutes: 5,
+    },
+    available_models: [
+      {
+        id: "deepseek/deepseek-chat-v3.1:free",
+        name: "DeepSeek: DeepSeek V3.1 (free)",
+      },
+      {
+        id: "openai/gpt-oss-20b:free",
+        name: "OpenAI: gpt-oss-20b (free)",
+      },
+      {
+        id: "deepseek/deepseek-r1-0528-qwen3-8b:free",
+        name: "DeepSeek: DeepSeek R1 0528 Qwen3 8B (free)",
+      },
+      {
+        id: "google/gemma-3n-e4b-it:free",
+        name: "Google: Gemma 3n 4B (free)",
+      },
+      {
+        id: "google/gemini-2.0-flash-exp:free",
+        name: "Google: Gemini 2.0 Flash Experimental (free)",
+      },
+      {
+        id: "deepseek/deepseek-r1-0528:free",
+        name: "DeepSeek: R1 0528 (free)",
+      },
+      {
+        id: "google/gemma-3n-e2b-it:free",
+        name: "Google: Gemma 3n 2B (free)",
+      },
+      {
+        id: "deepseek/deepseek-r1:free",
+        name: "DeepSeek: R1 (free)",
+      },
+      {
+        id: "deepseek/deepseek-r1-distill-llama-70b:free",
+        name: "DeepSeek: R1 Distill Llama 70B (free)",
+      },
+      {
+        id: "google/gemma-3-4b-it:free",
+        name: "Google: Gemma 3 4B (free)",
+      },
+      {
+        id: "google/gemma-3-12b-it:free",
+        name: "Google: Gemma 3 12B (free)",
+      },
+      {
+        id: "deepseek/deepseek-chat-v3-0324:free",
+        name: "DeepSeek: DeepSeek V3 0324 (free)",
+      },
+      {
+        id: "google/gemma-3-27b-it:free",
+        name: "Google: Gemma 3 27B (free)",
+      },
+      {
+        id: "google/gemma-3n-e4b-it",
+        name: "Google: Gemma 3n 4B",
+      },
+      {
+        id: "google/gemma-3-4b-it",
+        name: "Google: Gemma 3 4B",
+      },
+      {
+        id: "deepseek/deepseek-r1-0528-qwen3-8b",
+        name: "DeepSeek: DeepSeek R1 0528 Qwen3 8B",
+      },
+      {
+        id: "deepseek/deepseek-r1-distill-llama-70b",
+        name: "DeepSeek: R1 Distill Llama 70B",
+      },
+      {
+        id: "openai/gpt-oss-20b",
+        name: "OpenAI: gpt-oss-20b",
+      },
+      {
+        id: "openai/gpt-oss-120b:exacto",
+        name: "OpenAI: gpt-oss-120b (exacto)",
+      },
+      {
+        id: "deepseek/deepseek-r1-distill-qwen-14b",
+        name: "DeepSeek: R1 Distill Qwen 14B",
+      },
+      {
+        id: "openai/gpt-oss-safeguard-20b",
+        name: "OpenAI: gpt-oss-safeguard-20b",
+      },
+      {
+        id: "google/gemini-2.0-flash-lite-001",
+        name: "Google: Gemini 2.0 Flash Lite",
+      },
+      {
+        id: "openai/gpt-oss-120b",
+        name: "OpenAI: gpt-oss-120b",
+      },
+      {
+        id: "openai/gpt-5-nano",
+        name: "OpenAI: GPT-5 Nano",
+      },
+      {
+        id: "openai/gpt-4.1-nano",
+        name: "OpenAI: GPT-4.1 Nano",
+      },
+      {
+        id: "google/gemini-2.0-flash-001",
+        name: "Google: Gemini 2.0 Flash",
+      },
+      {
+        id: "google/gemini-2.5-flash-lite-preview-06-17",
+        name: "Google: Gemini 2.5 Flash Lite Preview 06-17",
+      },
+      {
+        id: "google/gemini-2.5-flash-lite-preview-09-2025",
+        name: "Google: Gemini 2.5 Flash Lite Preview 09-2025",
+      },
+      {
+        id: "deepseek/deepseek-v3.2-exp",
+        name: "DeepSeek: DeepSeek V3.2 Exp",
+      },
+      {
+        id: "x-ai/grok-4-fast",
+        name: "xAI: Grok 4 Fast",
+      },
+      {
+        id: "openai/gpt-4o-mini-2024-07-18",
+        name: "OpenAI: GPT-4o-mini (2024-07-18)",
+      },
+      {
+        id: "openai/gpt-4o-mini-search-preview",
+        name: "OpenAI: GPT-4o-mini Search Preview",
+      },
+      {
+        id: "openai/gpt-4o-mini",
+        name: "OpenAI: GPT-4o-mini",
+      },
+      {
+        id: "x-ai/grok-3-mini-beta",
+        name: "xAI: Grok 3 Mini Beta",
+      },
+      {
+        id: "x-ai/grok-3-mini",
+        name: "xAI: Grok 3 Mini",
+      },
+      {
+        id: "deepseek/deepseek-chat-v3.1",
+        name: "DeepSeek: DeepSeek V3.1",
+      },
+      {
+        id: "deepseek/deepseek-chat-v3-0324",
+        name: "DeepSeek: DeepSeek V3 0324",
+      },
+      {
+        id: "deepseek/deepseek-v3.1-terminus",
+        name: "DeepSeek: DeepSeek V3.1 Terminus",
+      },
+      {
+        id: "deepseek/deepseek-v3.1-terminus:exacto",
+        name: "DeepSeek: DeepSeek V3.1 Terminus (exacto)",
+      },
+      {
+        id: "anthropic/claude-3-haiku",
+        name: "Anthropic: Claude 3 Haiku",
+      },
+      {
+        id: "deepseek/deepseek-r1",
+        name: "DeepSeek: R1",
+      },
+      {
+        id: "x-ai/grok-code-fast-1",
+        name: "xAI: Grok Code Fast 1",
+      },
+      {
+        id: "openai/gpt-3.5-turbo",
+        name: "OpenAI: GPT-3.5 Turbo",
+      },
+      {
+        id: "openai/gpt-4.1-mini",
+        name: "OpenAI: GPT-4.1 Mini",
+      },
+      {
+        id: "openai/gpt-5-mini",
+        name: "OpenAI: GPT-5 Mini",
+      },
+      {
+        id: "deepseek/deepseek-prover-v2",
+        name: "DeepSeek: DeepSeek Prover V2",
+      },
+      {
+        id: "google/gemini-2.5-flash-preview-09-2025",
+        name: "Google: Gemini 2.5 Flash Preview 09-2025",
+      },
+    ],
+  },
+  {
+    plan_id: "pro",
+    name: "Pro",
+    price_usd: 199,
+    features: {
+      bot_count: 2,
+      trigger_interval_minutes: 5,
+    },
+    available_models: [
+      {
+        id: "deepseek/deepseek-chat-v3.1:free",
+        name: "DeepSeek: DeepSeek V3.1 (free)",
+      },
+      {
+        id: "openai/gpt-oss-20b:free",
+        name: "OpenAI: gpt-oss-20b (free)",
+      },
+      {
+        id: "deepseek/deepseek-r1-0528-qwen3-8b:free",
+        name: "DeepSeek: DeepSeek R1 0528 Qwen3 8B (free)",
+      },
+      {
+        id: "google/gemma-3n-e4b-it:free",
+        name: "Google: Gemma 3n 4B (free)",
+      },
+      {
+        id: "google/gemini-2.0-flash-exp:free",
+        name: "Google: Gemini 2.0 Flash Experimental (free)",
+      },
+      {
+        id: "deepseek/deepseek-r1-0528:free",
+        name: "DeepSeek: R1 0528 (free)",
+      },
+      {
+        id: "google/gemma-3n-e2b-it:free",
+        name: "Google: Gemma 3n 2B (free)",
+      },
+      {
+        id: "deepseek/deepseek-r1:free",
+        name: "DeepSeek: R1 (free)",
+      },
+      {
+        id: "deepseek/deepseek-r1-distill-llama-70b:free",
+        name: "DeepSeek: R1 Distill Llama 70B (free)",
+      },
+      {
+        id: "google/gemma-3-4b-it:free",
+        name: "Google: Gemma 3 4B (free)",
+      },
+      {
+        id: "google/gemma-3-12b-it:free",
+        name: "Google: Gemma 3 12B (free)",
+      },
+      {
+        id: "deepseek/deepseek-chat-v3-0324:free",
+        name: "DeepSeek: DeepSeek V3 0324 (free)",
+      },
+      {
+        id: "google/gemma-3-27b-it:free",
+        name: "Google: Gemma 3 27B (free)",
+      },
+      {
+        id: "google/gemma-3n-e4b-it",
+        name: "Google: Gemma 3n 4B",
+      },
+      {
+        id: "google/gemma-3-4b-it",
+        name: "Google: Gemma 3 4B",
+      },
+      {
+        id: "deepseek/deepseek-r1-0528-qwen3-8b",
+        name: "DeepSeek: DeepSeek R1 0528 Qwen3 8B",
+      },
+      {
+        id: "deepseek/deepseek-r1-distill-llama-70b",
+        name: "DeepSeek: R1 Distill Llama 70B",
+      },
+      {
+        id: "openai/gpt-oss-20b",
+        name: "OpenAI: gpt-oss-20b",
+      },
+      {
+        id: "openai/gpt-oss-120b:exacto",
+        name: "OpenAI: gpt-oss-120b (exacto)",
+      },
+      {
+        id: "deepseek/deepseek-r1-distill-qwen-14b",
+        name: "DeepSeek: R1 Distill Qwen 14B",
+      },
+      {
+        id: "openai/gpt-oss-safeguard-20b",
+        name: "OpenAI: gpt-oss-safeguard-20b",
+      },
+      {
+        id: "google/gemini-2.0-flash-lite-001",
+        name: "Google: Gemini 2.0 Flash Lite",
+      },
+      {
+        id: "openai/gpt-oss-120b",
+        name: "OpenAI: gpt-oss-120b",
+      },
+      {
+        id: "openai/gpt-5-nano",
+        name: "OpenAI: GPT-5 Nano",
+      },
+      {
+        id: "openai/gpt-4.1-nano",
+        name: "OpenAI: GPT-4.1 Nano",
+      },
+      {
+        id: "google/gemini-2.0-flash-001",
+        name: "Google: Gemini 2.0 Flash",
+      },
+      {
+        id: "google/gemini-2.5-flash-lite-preview-06-17",
+        name: "Google: Gemini 2.5 Flash Lite Preview 06-17",
+      },
+      {
+        id: "google/gemini-2.5-flash-lite-preview-09-2025",
+        name: "Google: Gemini 2.5 Flash Lite Preview 09-2025",
+      },
+      {
+        id: "deepseek/deepseek-v3.2-exp",
+        name: "DeepSeek: DeepSeek V3.2 Exp",
+      },
+      {
+        id: "x-ai/grok-4-fast",
+        name: "xAI: Grok 4 Fast",
+      },
+      {
+        id: "openai/gpt-4o-mini-2024-07-18",
+        name: "OpenAI: GPT-4o-mini (2024-07-18)",
+      },
+      {
+        id: "openai/gpt-4o-mini-search-preview",
+        name: "OpenAI: GPT-4o-mini Search Preview",
+      },
+      {
+        id: "openai/gpt-4o-mini",
+        name: "OpenAI: GPT-4o-mini",
+      },
+      {
+        id: "x-ai/grok-3-mini-beta",
+        name: "xAI: Grok 3 Mini Beta",
+      },
+      {
+        id: "x-ai/grok-3-mini",
+        name: "xAI: Grok 3 Mini",
+      },
+      {
+        id: "deepseek/deepseek-chat-v3.1",
+        name: "DeepSeek: DeepSeek V3.1",
+      },
+      {
+        id: "deepseek/deepseek-chat-v3-0324",
+        name: "DeepSeek: DeepSeek V3 0324",
+      },
+      {
+        id: "deepseek/deepseek-v3.1-terminus",
+        name: "DeepSeek: DeepSeek V3.1 Terminus",
+      },
+      {
+        id: "deepseek/deepseek-v3.1-terminus:exacto",
+        name: "DeepSeek: DeepSeek V3.1 Terminus (exacto)",
+      },
+      {
+        id: "anthropic/claude-3-haiku",
+        name: "Anthropic: Claude 3 Haiku",
+      },
+      {
+        id: "deepseek/deepseek-r1",
+        name: "DeepSeek: R1",
+      },
+      {
+        id: "x-ai/grok-code-fast-1",
+        name: "xAI: Grok Code Fast 1",
+      },
+      {
+        id: "openai/gpt-3.5-turbo",
+        name: "OpenAI: GPT-3.5 Turbo",
+      },
+      {
+        id: "openai/gpt-4.1-mini",
+        name: "OpenAI: GPT-4.1 Mini",
+      },
+      {
+        id: "openai/gpt-5-mini",
+        name: "OpenAI: GPT-5 Mini",
+      },
+      {
+        id: "deepseek/deepseek-prover-v2",
+        name: "DeepSeek: DeepSeek Prover V2",
+      },
+      {
+        id: "google/gemini-2.5-flash-preview-09-2025",
+        name: "Google: Gemini 2.5 Flash Preview 09-2025",
+      },
+      {
+        id: "openai/gpt-3.5-turbo-0613",
+        name: "OpenAI: GPT-3.5 Turbo (older v0613)",
+      },
+      {
+        id: "openai/gpt-3.5-turbo-instruct",
+        name: "OpenAI: GPT-3.5 Turbo Instruct",
+      },
+      {
+        id: "anthropic/claude-3.5-haiku-20241022",
+        name: "Anthropic: Claude 3.5 Haiku (2024-10-22)",
+      },
+      {
+        id: "openai/o3-mini",
+        name: "OpenAI: o3 Mini",
+      },
+      {
+        id: "openai/o4-mini",
+        name: "OpenAI: o4 Mini",
+      },
+      {
+        id: "openai/o4-mini-high",
+        name: "OpenAI: o4 Mini High",
+      },
+      {
+        id: "openai/o3-mini-high",
+        name: "OpenAI: o3 Mini High",
+      },
+    ],
+  },
+  {
+    plan_id: "flagship",
+    name: "Flagship",
+    price_usd: 999,
+    features: {
+      bot_count: 3,
+      trigger_interval_minutes: 5,
+    },
+    available_models: [
+      {
+        id: "deepseek/deepseek-chat-v3.1:free",
+        name: "DeepSeek: DeepSeek V3.1 (free)",
+      },
+      {
+        id: "openai/gpt-oss-20b:free",
+        name: "OpenAI: gpt-oss-20b (free)",
+      },
+      {
+        id: "deepseek/deepseek-r1-0528-qwen3-8b:free",
+        name: "DeepSeek: DeepSeek R1 0528 Qwen3 8B (free)",
+      },
+      {
+        id: "google/gemma-3n-e4b-it:free",
+        name: "Google: Gemma 3n 4B (free)",
+      },
+      {
+        id: "google/gemini-2.0-flash-exp:free",
+        name: "Google: Gemini 2.0 Flash Experimental (free)",
+      },
+      {
+        id: "deepseek/deepseek-r1-0528:free",
+        name: "DeepSeek: R1 0528 (free)",
+      },
+      {
+        id: "google/gemma-3n-e2b-it:free",
+        name: "Google: Gemma 3n 2B (free)",
+      },
+      {
+        id: "deepseek/deepseek-r1:free",
+        name: "DeepSeek: R1 (free)",
+      },
+      {
+        id: "deepseek/deepseek-r1-distill-llama-70b:free",
+        name: "DeepSeek: R1 Distill Llama 70B (free)",
+      },
+      {
+        id: "google/gemma-3-4b-it:free",
+        name: "Google: Gemma 3 4B (free)",
+      },
+      {
+        id: "google/gemma-3-12b-it:free",
+        name: "Google: Gemma 3 12B (free)",
+      },
+      {
+        id: "deepseek/deepseek-chat-v3-0324:free",
+        name: "DeepSeek: DeepSeek V3 0324 (free)",
+      },
+      {
+        id: "google/gemma-3-27b-it:free",
+        name: "Google: Gemma 3 27B (free)",
+      },
+      {
+        id: "google/gemma-3n-e4b-it",
+        name: "Google: Gemma 3n 4B",
+      },
+      {
+        id: "google/gemma-3-4b-it",
+        name: "Google: Gemma 3 4B",
+      },
+      {
+        id: "deepseek/deepseek-r1-0528-qwen3-8b",
+        name: "DeepSeek: DeepSeek R1 0528 Qwen3 8B",
+      },
+      {
+        id: "deepseek/deepseek-r1-distill-llama-70b",
+        name: "DeepSeek: R1 Distill Llama 70B",
+      },
+      {
+        id: "openai/gpt-oss-20b",
+        name: "OpenAI: gpt-oss-20b",
+      },
+      {
+        id: "openai/gpt-oss-120b:exacto",
+        name: "OpenAI: gpt-oss-120b (exacto)",
+      },
+      {
+        id: "deepseek/deepseek-r1-distill-qwen-14b",
+        name: "DeepSeek: R1 Distill Qwen 14B",
+      },
+      {
+        id: "openai/gpt-oss-safeguard-20b",
+        name: "OpenAI: gpt-oss-safeguard-20b",
+      },
+      {
+        id: "google/gemini-2.0-flash-lite-001",
+        name: "Google: Gemini 2.0 Flash Lite",
+      },
+      {
+        id: "openai/gpt-oss-120b",
+        name: "OpenAI: gpt-oss-120b",
+      },
+      {
+        id: "openai/gpt-5-nano",
+        name: "OpenAI: GPT-5 Nano",
+      },
+      {
+        id: "openai/gpt-4.1-nano",
+        name: "OpenAI: GPT-4.1 Nano",
+      },
+      {
+        id: "google/gemini-2.0-flash-001",
+        name: "Google: Gemini 2.0 Flash",
+      },
+      {
+        id: "google/gemini-2.5-flash-lite-preview-06-17",
+        name: "Google: Gemini 2.5 Flash Lite Preview 06-17",
+      },
+      {
+        id: "google/gemini-2.5-flash-lite-preview-09-2025",
+        name: "Google: Gemini 2.5 Flash Lite Preview 09-2025",
+      },
+      {
+        id: "deepseek/deepseek-v3.2-exp",
+        name: "DeepSeek: DeepSeek V3.2 Exp",
+      },
+      {
+        id: "x-ai/grok-4-fast",
+        name: "xAI: Grok 4 Fast",
+      },
+      {
+        id: "openai/gpt-4o-mini-2024-07-18",
+        name: "OpenAI: GPT-4o-mini (2024-07-18)",
+      },
+      {
+        id: "openai/gpt-4o-mini-search-preview",
+        name: "OpenAI: GPT-4o-mini Search Preview",
+      },
+      {
+        id: "openai/gpt-4o-mini",
+        name: "OpenAI: GPT-4o-mini",
+      },
+      {
+        id: "x-ai/grok-3-mini-beta",
+        name: "xAI: Grok 3 Mini Beta",
+      },
+      {
+        id: "x-ai/grok-3-mini",
+        name: "xAI: Grok 3 Mini",
+      },
+      {
+        id: "deepseek/deepseek-chat-v3.1",
+        name: "DeepSeek: DeepSeek V3.1",
+      },
+      {
+        id: "deepseek/deepseek-chat-v3-0324",
+        name: "DeepSeek: DeepSeek V3 0324",
+      },
+      {
+        id: "deepseek/deepseek-v3.1-terminus",
+        name: "DeepSeek: DeepSeek V3.1 Terminus",
+      },
+      {
+        id: "deepseek/deepseek-v3.1-terminus:exacto",
+        name: "DeepSeek: DeepSeek V3.1 Terminus (exacto)",
+      },
+      {
+        id: "anthropic/claude-3-haiku",
+        name: "Anthropic: Claude 3 Haiku",
+      },
+      {
+        id: "deepseek/deepseek-r1",
+        name: "DeepSeek: R1",
+      },
+      {
+        id: "x-ai/grok-code-fast-1",
+        name: "xAI: Grok Code Fast 1",
+      },
+      {
+        id: "openai/gpt-3.5-turbo",
+        name: "OpenAI: GPT-3.5 Turbo",
+      },
+      {
+        id: "openai/gpt-4.1-mini",
+        name: "OpenAI: GPT-4.1 Mini",
+      },
+      {
+        id: "openai/gpt-5-mini",
+        name: "OpenAI: GPT-5 Mini",
+      },
+      {
+        id: "deepseek/deepseek-prover-v2",
+        name: "DeepSeek: DeepSeek Prover V2",
+      },
+      {
+        id: "google/gemini-2.5-flash-preview-09-2025",
+        name: "Google: Gemini 2.5 Flash Preview 09-2025",
+      },
+      {
+        id: "openai/gpt-3.5-turbo-0613",
+        name: "OpenAI: GPT-3.5 Turbo (older v0613)",
+      },
+      {
+        id: "openai/gpt-3.5-turbo-instruct",
+        name: "OpenAI: GPT-3.5 Turbo Instruct",
+      },
+      {
+        id: "anthropic/claude-3.5-haiku-20241022",
+        name: "Anthropic: Claude 3.5 Haiku (2024-10-22)",
+      },
+      {
+        id: "openai/o3-mini",
+        name: "OpenAI: o3 Mini",
+      },
+      {
+        id: "openai/o4-mini",
+        name: "OpenAI: o4 Mini",
+      },
+      {
+        id: "openai/o4-mini-high",
+        name: "OpenAI: o4 Mini High",
+      },
+      {
+        id: "openai/o3-mini-high",
+        name: "OpenAI: o3 Mini High",
+      },
+      {
+        id: "openai/gpt-3.5-turbo-16k",
+        name: "OpenAI: GPT-3.5 Turbo 16k",
+      },
+      {
+        id: "openai/codex-mini",
+        name: "OpenAI: Codex Mini",
+      },
+      {
+        id: "openai/o4-mini-deep-research",
+        name: "OpenAI: o4 Mini Deep Research",
+      },
+      {
+        id: "openai/gpt-4.1",
+        name: "OpenAI: GPT-4.1",
+      },
+      {
+        id: "openai/o3",
+        name: "OpenAI: o3",
+      },
+      {
+        id: "openai/gpt-5-codex",
+        name: "OpenAI: GPT-5 Codex",
+      },
+      {
+        id: "openai/gpt-5-chat",
+        name: "OpenAI: GPT-5 Chat",
+      },
+      {
+        id: "google/gemini-2.5-pro",
+        name: "Google: Gemini 2.5 Pro",
+      },
+      {
+        id: "google/gemini-2.5-pro-preview",
+        name: "Google: Gemini 2.5 Pro Preview 06-05",
+      },
+      {
+        id: "google/gemini-2.5-pro-preview-05-06",
+        name: "Google: Gemini 2.5 Pro Preview 05-06",
+      },
+      {
+        id: "openai/gpt-5",
+        name: "OpenAI: GPT-5",
+      },
+      {
+        id: "openai/gpt-4o-2024-08-06",
+        name: "OpenAI: GPT-4o (2024-08-06)",
+      },
+      {
+        id: "openai/gpt-4o-2024-11-20",
+        name: "OpenAI: GPT-4o (2024-11-20)",
+      },
+      {
+        id: "openai/gpt-4o-search-preview",
+        name: "OpenAI: GPT-4o Search Preview",
+      },
+      {
+        id: "openai/gpt-4o",
+        name: "OpenAI: GPT-4o",
+      },
+      {
+        id: "openai/gpt-4o-audio-preview",
+        name: "OpenAI: GPT-4o Audio",
+      },
+      {
+        id: "anthropic/claude-3.7-sonnet",
+        name: "Anthropic: Claude 3.7 Sonnet",
+      },
+      {
+        id: "anthropic/claude-3.5-sonnet-20240620",
+        name: "Anthropic: Claude 3.5 Sonnet (2024-06-20)",
+      },
+      {
+        id: "x-ai/grok-4",
+        name: "xAI: Grok 4",
+      },
+      {
+        id: "x-ai/grok-3-beta",
+        name: "xAI: Grok 3 Beta",
+      },
+    ],
+  },
+]
+
+export function getPlanById(planId: string): SubscriptionPlan | undefined {
+  return SUBSCRIPTION_PLANS.find((plan) => plan.plan_id === planId)
+}
+
+export function getAvailableModelsForPlans(planIds: string[]): Array<{ id: string; name: string }> {
+  const modelMap = new Map<string, { id: string; name: string }>()
+  
+  for (const planId of planIds) {
+    const plan = getPlanById(planId)
+    if (plan) {
+      for (const model of plan.available_models) {
+        if (!modelMap.has(model.id)) {
+          modelMap.set(model.id, model)
+        }
+      }
+    }
+  }
+  
+  return Array.from(modelMap.values())
+}
+
+export function getMaxBotCountForPlans(planIds: string[]): number {
+  return planIds.reduce((max, planId) => {
+    const plan = getPlanById(planId)
+    return plan ? Math.max(max, plan.features.bot_count) : max
+  }, 0)
+}
+
+export function getTotalBotCountForPlans(planIds: string[]): number {
+  return planIds.reduce((total, planId) => {
+    const plan = getPlanById(planId)
+    return plan ? total + plan.features.bot_count : total
+  }, 0)
+}
+

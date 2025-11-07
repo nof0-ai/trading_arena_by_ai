@@ -1,0 +1,9 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/fetch-btc-candle",
+      "schedule": "*/1 * * * *"
+    }
+  ]
+}
+
