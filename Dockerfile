@@ -66,9 +66,9 @@ RUN addgroup -S nextjs -g 1001 \
 
 WORKDIR /app
 
-COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/BUILD_ID ./.next/BUILD_ID
 
 USER nextjs
