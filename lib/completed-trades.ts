@@ -1,5 +1,6 @@
 import { createBrowserClient } from "@/lib/supabase/client"
 import { getModelIcon, getModelImage } from "@/lib/share-data"
+import { getModelDisplayName } from "@/lib/model-info"
 
 export interface CompletedTrade {
   id: string
@@ -76,21 +77,22 @@ export async function getAllCompletedTrades(limit = 100): Promise<CompletedTrade
   for (const bot of bots) {
     try {
       const config = JSON.parse(bot.encrypted_config)
-      const model = config.model || "Unknown"
+      const rawModel = typeof config.model === "string" ? config.model : ""
 
-      const icon = getModelIcon(model)
-      const modelImage = getModelImage(model)
+      const icon = getModelIcon(rawModel)
+      const modelImage = getModelImage(rawModel)
+      const displayModel = getModelDisplayName(rawModel) ?? rawModel.trim()
 
       botInfoMap.set(bot.id, {
         name: config.name || "Unknown Bot",
-        model: model.toUpperCase(),
+        model: displayModel,
         icon,
         modelImage,
       })
     } catch (error) {
       botInfoMap.set(bot.id, {
         name: "Unknown Bot",
-        model: "UNKNOWN",
+        model: "",
         icon: getModelIcon(undefined),
         modelImage: getModelImage(undefined),
       })

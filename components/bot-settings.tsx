@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,6 +10,8 @@ import { Switch } from "@/components/ui/switch"
 import { updateBotConfig, type BotConfig } from "@/lib/bot-storage"
 import { useWeb3 } from "@/components/web3-provider"
 import { AdvancedPromptEditor } from "@/components/advanced-prompt-editor"
+import { getAvailableModelsForPlans } from "@/lib/subscription-plans"
+import { getUserActivePlanIds } from "@/lib/stripe"
 
 interface BotSettingsProps {
   botId: string
@@ -17,30 +19,18 @@ interface BotSettingsProps {
   onUpdate: (updatedConfig: BotConfig) => void
 }
 
-const AI_MODELS = [
-  // Free models - Qwen 2.5 72B is default
-  { label: "Qwen 2.5 72B (Free) [Default]", value: "qwen/qwen-2.5-72b-instruct:free" },
-  { label: "DeepSeek Chat V3.1 (Free)", value: "deepseek/deepseek-chat-v3.1:free" },
-  { label: "Google Gemini 2.0 Flash (Free)", value: "google/gemini-2.0-flash-exp:free" },
-  { label: "DeepSeek R1 (Free)", value: "deepseek/deepseek-r1:free" },
-  // Top-tier models only
-   
-  { label: "GPT-O3 Deep Research", value: "openai/o3-deep-research" },
-  { label: "Claude Haiku 4.5", value: "anthropic/claude-haiku-4.5" },
-  { label: "Gemini 2.5 Pro", value: "google/gemini-2.5-pro" },
-  { label: "Grok 4", value: "x-ai/grok-4" },
-  { label: "Qwen 3 Max", value: "qwen/qwen3-max" },
-]
-
 export function BotSettings({ botId, botConfig, onUpdate }: BotSettingsProps) {
   const { address } = useWeb3()
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [availableModels, setAvailableModels] = useState<Array<{ label: string; value: string }>>([])
+  const [isLoadingModels, setIsLoadingModels] = useState(false)
+  const [modelLoadError, setModelLoadError] = useState<string>("")
 
   const [formData, setFormData] = useState({
     name: botConfig.name || "",
-    model: botConfig.model || "qwen/qwen-2.5-72b-instruct:free",
+    model: botConfig.model || "",
     prompt: botConfig.prompt || "",
     status: botConfig.status || "active",
     tradingPairs: botConfig.tradingPairs || [],
@@ -52,6 +42,67 @@ export function BotSettings({ botId, botConfig, onUpdate }: BotSettingsProps) {
   })
 
   const [newTradingPair, setNewTradingPair] = useState("")
+
+  useEffect(() => {
+    let isSubscribed = true
+
+    const loadModels = async () => {
+      if (!address) {
+        if (!isSubscribed) return
+        setAvailableModels([])
+        setModelLoadError("")
+        return
+      }
+
+      setIsLoadingModels(true)
+      setModelLoadError("")
+
+      try {
+        const planIds = await getUserActivePlanIds(address)
+        const models = getAvailableModelsForPlans(planIds)
+        const modelOptions = models.map((model) => ({
+          label: model.name,
+          value: model.id,
+        }))
+
+        if (!isSubscribed) return
+
+        setAvailableModels(modelOptions)
+
+        setFormData((prev) => {
+          if (modelOptions.length === 0) {
+            return { ...prev, model: "" }
+          }
+
+          const currentModel = prev.model?.trim() ?? ""
+          if (currentModel.length === 0) {
+            return { ...prev, model: modelOptions[0].value }
+          }
+
+          const currentIsAvailable = modelOptions.some((option) => option.value === currentModel)
+          if (!currentIsAvailable) {
+            return { ...prev, model: modelOptions[0].value }
+          }
+
+          return prev
+        })
+      } catch (err: any) {
+        if (!isSubscribed) return
+        setAvailableModels([])
+        setModelLoadError(err?.message || "Failed to load models for your subscription")
+      } finally {
+        if (isSubscribed) {
+          setIsLoadingModels(false)
+        }
+      }
+    }
+
+    void loadModels()
+
+    return () => {
+      isSubscribed = false
+    }
+  }, [address])
 
   const handleSave = async () => {
     if (!address) {
@@ -66,6 +117,22 @@ export function BotSettings({ botId, botConfig, onUpdate }: BotSettingsProps) {
 
     if (!formData.orderSize || parseFloat(formData.orderSize) < 11) {
       setError("Order size must be at least $11 (Hyperliquid minimum requirement)")
+      return
+    }
+
+    if (availableModels.length === 0) {
+      setError("No AI models available. Please ensure you have an active subscription plan.")
+      return
+    }
+
+    if (!formData.model) {
+      setError("Please select an AI model")
+      return
+    }
+
+    const modelIsAvailable = availableModels.some((model) => model.value === formData.model)
+    if (!modelIsAvailable) {
+      setError("Selected AI model is not available for your current subscription")
       return
     }
 
@@ -156,18 +223,32 @@ export function BotSettings({ botId, botConfig, onUpdate }: BotSettingsProps) {
             <Label htmlFor="bot-model" className="font-mono text-sm">
               AI MODEL
             </Label>
-            <Select value={formData.model} onValueChange={(value) => setFormData({ ...formData, model: value })}>
-              <SelectTrigger id="bot-model" className="font-mono mt-1">
-                <SelectValue placeholder="Select AI model" />
-              </SelectTrigger>
-              <SelectContent>
-                {AI_MODELS.map((model) => (
-                  <SelectItem key={model.value} value={model.value} className="font-mono">
-                    {model.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {isLoadingModels ? (
+              <div className="border-2 border-yellow-300 bg-yellow-50 p-3 mt-1 font-mono text-xs text-yellow-800">
+                Loading AI models...
+              </div>
+            ) : modelLoadError ? (
+              <div className="border-2 border-red-300 bg-red-50 p-3 mt-1 font-mono text-xs text-red-700">
+                {modelLoadError}
+              </div>
+            ) : availableModels.length === 0 ? (
+              <div className="border-2 border-yellow-300 bg-yellow-50 p-3 mt-1 font-mono text-xs text-yellow-800">
+                No AI models available. Please subscribe to a plan to access AI models.
+              </div>
+            ) : (
+              <Select value={formData.model} onValueChange={(value) => setFormData({ ...formData, model: value })}>
+                <SelectTrigger id="bot-model" className="font-mono mt-1">
+                  <SelectValue placeholder="Select AI model" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableModels.map((model) => (
+                    <SelectItem key={model.value} value={model.value} className="font-mono">
+                      {model.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div>

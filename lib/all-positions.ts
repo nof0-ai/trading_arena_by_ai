@@ -1,6 +1,7 @@
 import { createBrowserClient } from "@/lib/supabase/client"
 import { HyperliquidClient } from "@/lib/hyperliquid-client"
 import { getModelIcon, getModelImage } from "@/lib/share-data"
+import { getModelDisplayName } from "@/lib/model-info"
 
 export interface BotPosition {
   id: string
@@ -80,14 +81,15 @@ export async function getAllBotPositions(): Promise<BotPosition[]> {
   for (const bot of bots) {
     try {
       const config = JSON.parse(bot.encrypted_config)
-      const model = config.model || "Unknown"
+      const rawModel = typeof config.model === "string" ? config.model : ""
 
-      const icon = getModelIcon(model)
-      const modelImage = getModelImage(model)
+      const icon = getModelIcon(rawModel)
+      const modelImage = getModelImage(rawModel)
+      const displayModel = getModelDisplayName(rawModel) ?? rawModel.trim()
 
       botInfoMap.set(bot.id, {
         name: config.name || "Unknown Bot",
-        model: model.toUpperCase(),
+        model: displayModel,
         icon,
         modelImage,
       })
@@ -99,7 +101,7 @@ export async function getAllBotPositions(): Promise<BotPosition[]> {
     } catch (error) {
       botInfoMap.set(bot.id, {
         name: "Unknown Bot",
-        model: "UNKNOWN",
+        model: "",
         icon: getModelIcon(undefined),
         modelImage: getModelImage(undefined),
       })

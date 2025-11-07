@@ -1,18 +1,18 @@
 import { createClient } from "@supabase/supabase-js"
+import { getModelDisplayName } from "@/lib/model-info"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 export type ShareType = "bot" | "trade" | "analysis"
 
-const modelAssets: Record<string, { icon: string; image: string }> = {
-   
-  gpt: { icon: "🟢", image: "/openai.png" },
-  claude: { icon: "🟠", image: "/claude-color.png" },
-  gemini: { icon: "🔷", image: "/gemini-color.png" },
-  grok: { icon: "⚫", image: "/grok.png" },
-  deepseek: { icon: "🔵", image: "/deepseek-color.png" },
-  qwen: { icon: "🟣", image: "/qwen-color.png" },
+const providerAssets: Record<string, { icon: string; image: string }> = {
+  "openai": { icon: "🟢", image: "/openai.png" },
+  "anthropic": { icon: "🟠", image: "/claude-color.png" },
+  "google": { icon: "🔷", image: "/gemini-color.png" },
+  "x-ai": { icon: "⚫", image: "/grok.png" },
+  "deepseek": { icon: "🔵", image: "/deepseek-color.png" },
+  "qwen": { icon: "🟣", image: "/qwen-color.png" },
 }
 
 const defaultModelMetadata: { icon: string; image: string } = {
@@ -41,17 +41,45 @@ function normalizeAssetPath(asset: string | undefined) {
   return `/${withoutLeadingSlash}`
 }
 
+export function getModelProvider(model: string | undefined): string | undefined {
+  if (model === undefined) {
+    return undefined
+  }
+
+  const trimmed = model.trim()
+  if (trimmed.length === 0) {
+    return undefined
+  }
+
+  const normalized = trimmed.toLowerCase()
+
+  const providerCandidate = normalized.split("/")[0]
+  if (providerAssets[providerCandidate]) {
+    return providerCandidate
+  }
+
+  for (const provider of Object.keys(providerAssets)) {
+    if (normalized.includes(provider)) {
+      return provider
+    }
+  }
+
+  return undefined
+}
+
 function getModelMetadata(model: string | undefined) {
-  if (!model) return defaultModelMetadata
-  const modelLower = model.toLowerCase()
-  for (const [key, value] of Object.entries(modelAssets)) {
-    if (modelLower.includes(key)) {
+  const provider = getModelProvider(model)
+
+  if (provider) {
+    const assets = providerAssets[provider]
+    if (assets) {
       return {
-        icon: value.icon,
-        image: normalizeAssetPath(value.image),
+        icon: assets.icon,
+        image: normalizeAssetPath(assets.image),
       }
     }
   }
+
   return {
     icon: defaultModelMetadata.icon,
     image: normalizeAssetPath(defaultModelMetadata.image),
@@ -204,8 +232,12 @@ export async function getShareData(type: ShareType, id: string): Promise<ShareDa
     }
 
     const config = JSON.parse(botData.encrypted_config)
-    const model = config.model || "Unknown"
-    const { icon: modelIcon, image: modelImage } = getModelMetadata(model)
+    const rawModel = typeof config.model === "string" ? config.model : ""
+    const displayModel = (() => {
+      const derived = getModelDisplayName(rawModel) ?? rawModel.trim()
+      return derived.length > 0 ? derived : undefined
+    })()
+    const { icon: modelIcon, image: modelImage } = getModelMetadata(rawModel)
 
     const { data: trades } = await supabase
       .from("trades")
@@ -237,7 +269,7 @@ export async function getShareData(type: ShareType, id: string): Promise<ShareDa
     return {
       type: "bot",
       botName: config.name || "Unknown Bot",
-      model: model.toUpperCase(),
+      model: displayModel,
       modelIcon,
       modelImage,
       metrics: {
@@ -288,8 +320,12 @@ export async function getShareData(type: ShareType, id: string): Promise<ShareDa
     }
 
     const config = JSON.parse(botData.encrypted_config)
-    const model = config.model || "Unknown"
-    const { icon: modelIcon, image: modelImage } = getModelMetadata(model)
+    const rawModel = typeof config.model === "string" ? config.model : ""
+    const displayModel = (() => {
+      const derived = getModelDisplayName(rawModel) ?? rawModel.trim()
+      return derived.length > 0 ? derived : undefined
+    })()
+    const { icon: modelIcon, image: modelImage } = getModelMetadata(rawModel)
 
     const entryPx = parseFloat(entryTrade.price)
     const exitPx = parseFloat(exitTrade.price)
@@ -325,7 +361,7 @@ export async function getShareData(type: ShareType, id: string): Promise<ShareDa
     return {
       type: "trade",
       botName: config.name || "Unknown Bot",
-      model: model.toUpperCase(),
+      model: displayModel,
       modelIcon,
       modelImage,
       trade: {
@@ -364,13 +400,17 @@ export async function getShareData(type: ShareType, id: string): Promise<ShareDa
     }
 
     const config = JSON.parse(botData.encrypted_config)
-    const model = config.model || "Unknown"
-    const { icon: modelIcon, image: modelImage } = getModelMetadata(model)
+    const rawModel = typeof config.model === "string" ? config.model : ""
+    const displayModel = (() => {
+      const derived = getModelDisplayName(rawModel) ?? rawModel.trim()
+      return derived.length > 0 ? derived : undefined
+    })()
+    const { icon: modelIcon, image: modelImage } = getModelMetadata(rawModel)
 
     return {
       type: "analysis",
       botName: config.name || "Unknown Bot",
-      model: model.toUpperCase(),
+      model: displayModel,
       modelIcon,
       modelImage,
       analysis: {

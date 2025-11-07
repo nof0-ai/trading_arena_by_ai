@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { getModelIcon, getModelImage } from "@/lib/share-data"
+import { getModelIcon, getModelImage, getModelProvider } from "@/lib/share-data"
+import { getModelDisplayName } from "@/lib/model-info"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -279,36 +280,29 @@ export async function GET(request: Request) {
     const apiWalletIds: string[] = []
     const botApiWalletMap = new Map<string, string>()
 
+    const providerColors: Record<string, string> = {
+      "openai": "bg-green-500",
+      "anthropic": "bg-orange-500",
+      "google": "bg-blue-500",
+      "x-ai": "bg-gray-800",
+      "deepseek": "bg-blue-600",
+      "qwen": "bg-purple-600",
+    }
+
     for (const bot of bots) {
       try {
         const config = JSON.parse(bot.encrypted_config)
-        const model = config.model || "Unknown"
+        const rawModel = typeof config.model === "string" ? config.model : ""
 
-        const modelColors: Record<string, string> = {
-          "gpt-4": "bg-green-500",
-          "gpt-5": "bg-green-500",
-          claude: "bg-orange-500",
-          "claude-sonnet": "bg-orange-500",
-          gemini: "bg-blue-500",
-          grok: "bg-gray-800",
-          deepseek: "bg-blue-600",
-          qwen: "bg-purple-600",
-        }
-
-        const icon = getModelIcon(model)
-        const modelImage = getModelImage(model)
-        let color = "bg-gray-500"
-        const modelLower = model.toLowerCase()
-        for (const [key, value] of Object.entries(modelColors)) {
-          if (modelLower.includes(key)) {
-            color = value
-            break
-          }
-        }
+        const icon = getModelIcon(rawModel)
+        const modelImage = getModelImage(rawModel)
+        const provider = getModelProvider(rawModel)
+        const color = provider ? providerColors[provider] ?? "bg-gray-500" : "bg-gray-500"
+        const displayModel = getModelDisplayName(rawModel) ?? rawModel.trim()
 
         botInfoMap.set(bot.id, {
           name: config.name || "Unknown Bot",
-          model: model.toUpperCase(),
+          model: displayModel,
           icon,
           modelImage,
           color,
@@ -321,7 +315,7 @@ export async function GET(request: Request) {
       } catch (error) {
         botInfoMap.set(bot.id, {
           name: "Unknown Bot",
-          model: "UNKNOWN",
+          model: "",
           icon: getModelIcon(undefined),
           modelImage: getModelImage(undefined),
           color: "bg-gray-500",
