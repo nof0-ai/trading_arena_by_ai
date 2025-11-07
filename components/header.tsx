@@ -32,6 +32,15 @@ export function Header() {
               <Link href="/pricing" className="px-3 hover:bg-secondary transition-colors">
                 PRICING
               </Link>
+              <span className="text-muted-foreground">|</span>
+              <Link
+                href="https://github.com/nof0-ai/trading_arena_by_ai"
+                target="_blank"
+                rel="noreferrer noopener"
+                className="px-3 hover:bg-secondary transition-colors"
+              >
+                GITHUB
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-4 font-mono text-xs font-bold">

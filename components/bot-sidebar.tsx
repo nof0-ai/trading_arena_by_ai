@@ -86,7 +86,7 @@ export function BotSidebar({ selectedBotId, onSelectBot }: BotSidebarProps) {
       
       const supabase = createClient()
       const user = await ensureSupabaseUserForAddress(supabase, address)
-
+      
       if (user) {
         const testnetStatus: Record<string, boolean> = {}
         
