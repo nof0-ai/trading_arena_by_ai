@@ -2,6 +2,9 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { getModelIcon, getModelImage, getModelProvider } from "@/lib/share-data"
 import { getModelDisplayName } from "@/lib/model-info"
+import { computePerformanceFromTrades, type PerformanceTradeInput } from "@/lib/performance-metrics"
+
+type TradeComputation = ReturnType<typeof computePerformanceFromTrades>
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,11 +20,57 @@ if (!supabaseUrl || !supabaseServiceKey) {
 }
 
 interface TradeRecord {
+  id: string
   coin: string
   side: string
   price: number
   quantity: number | null
   leverage: number | null
+  executed_at: string | null
+}
+
+interface CandleRecord {
+  coin: string
+  time: number
+  close: number
+}
+
+interface TimelinePoint {
+  time: number
+  value: number
+}
+
+interface BotPerformanceComputation {
+  totalValue: number
+  unrealizedPnl: number
+  totalTradedAmount: number
+  history: TimelinePoint[]
+  metrics: TradeComputation["metrics"]
+  accountHistory: Array<{ date: string; value: number }>
+  recentTrades: TradeComputation["recentTrades"]
+  realizedPnl: number
+}
+
+function toFiniteNumber(value: unknown): number {
+  if (value === null || value === undefined) {
+    return 0
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number.parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  return 0
+}
+
+function toTimestamp(value: string | null): number {
+  if (!value) {
+    return Number.NaN
+  }
+  const parsed = Date.parse(value)
+  return Number.isNaN(parsed) ? Number.NaN : parsed
 }
 
 interface CompletedTrade {
@@ -83,128 +132,251 @@ interface BotLeaderboardEntry {
   totalTradedAmount: number
   isTestnet: boolean
   modelImage: string
+  history: Array<{ time: number; value: number }>
 }
 
-/**
- * Calculate bot performance from trades using real-time prices
- */
-async function calculateBotPerformance(
-  botId: string,
+function buildPerformanceTimeline(
   trades: TradeRecord[],
-  currentPrices: Record<string, number>
-): Promise<{
-  totalValue: number
-  unrealizedPnl: number
-  totalTradedAmount: number
-}> {
-  const positionMap = new Map<
-    string,
-    {
-      coin: string
-      tradedAmountUsd: number
-      totalQuantity: number
-      side: "LONG" | "SHORT"
-      leverage: number
-    }
-  >()
-
-  for (const trade of trades) {
-    const existing = positionMap.get(trade.coin) || {
-      coin: trade.coin,
-      tradedAmountUsd: 0,
-      totalQuantity: 0,
-      side: "LONG" as const,
-      leverage: trade.leverage || 1,
-    }
-
-    const tradePrice = Number.parseFloat(String(trade.price))
-    const tradeQuantity =
-      trade.quantity !== null && trade.quantity !== undefined
-        ? Number.parseFloat(String(trade.quantity))
-        : 0
-    
-    // Calculate USD value from quantity and price
-    const tradeSizeUsd = tradeQuantity * tradePrice
-
-    if (trade.side === "BUY") {
-      if (existing.totalQuantity === 0 || existing.totalQuantity > 0) {
-        existing.tradedAmountUsd += tradeSizeUsd
-        existing.totalQuantity += tradeQuantity
-        existing.side = "LONG"
-      } else if (existing.totalQuantity < 0) {
-        const closeQuantity = Math.min(Math.abs(existing.totalQuantity), tradeQuantity)
-        existing.totalQuantity += closeQuantity
-        existing.tradedAmountUsd -= closeQuantity * tradePrice
-        if (Math.abs(existing.totalQuantity) < 0.0001) {
-          existing.totalQuantity = 0
-          existing.tradedAmountUsd = 0
-        }
-        if (existing.totalQuantity === 0 && tradeQuantity > closeQuantity) {
-          const remainingQuantity = tradeQuantity - closeQuantity
-          existing.tradedAmountUsd = remainingQuantity * tradePrice
-          existing.totalQuantity = remainingQuantity
-          existing.side = "LONG"
-        }
-      }
-    } else if (trade.side === "SELL") {
-      if (existing.totalQuantity === 0 || existing.totalQuantity < 0) {
-        existing.tradedAmountUsd += tradeSizeUsd
-        existing.totalQuantity -= tradeQuantity
-        existing.side = "SHORT"
-      } else if (existing.totalQuantity > 0) {
-        const closeQuantity = Math.min(existing.totalQuantity, tradeQuantity)
-        existing.totalQuantity -= closeQuantity
-        existing.tradedAmountUsd -= closeQuantity * tradePrice
-        if (Math.abs(existing.totalQuantity) < 0.0001) {
-          existing.totalQuantity = 0
-          existing.tradedAmountUsd = 0
-        }
-        if (existing.totalQuantity === 0 && tradeQuantity > closeQuantity) {
-          const remainingQuantity = tradeQuantity - closeQuantity
-          existing.tradedAmountUsd = remainingQuantity * tradePrice
-          existing.totalQuantity = -remainingQuantity
-          existing.side = "SHORT"
-        }
-      }
-    }
-
-    if (trade.leverage) {
-      existing.leverage = trade.leverage
-    }
-
-    positionMap.set(trade.coin, existing)
+  candlesByCoin: Map<string, CandleRecord[]>,
+  currentPrices: Record<string, number>,
+  startTime: number,
+  endTime: number
+): { history: TimelinePoint[]; realizedPnl: number; totalTradedAmount: number } {
+  const sanitizedStart = Number.isFinite(startTime) ? startTime : 0
+  let sanitizedEnd = Number.isFinite(endTime) ? endTime : Date.now()
+  if (sanitizedEnd <= sanitizedStart) {
+    sanitizedEnd = sanitizedStart + 1
   }
 
-  let totalUnrealizedPnl = 0
+  const sortedTrades = trades
+    .map((trade) => {
+      const timestampValue = toTimestamp(trade.executed_at)
+      const time = Number.isNaN(timestampValue) ? sanitizedStart : timestampValue
+      const quantity = toFiniteNumber(trade.quantity)
+      const price = toFiniteNumber(trade.price)
+      if (quantity <= 0 || price <= 0) {
+        return null
+      }
+      const side = trade.side === "SELL" ? "SELL" : "BUY"
+      return {
+        id: trade.id,
+        coin: trade.coin,
+        side: side as "BUY" | "SELL",
+        price,
+        quantity,
+        time,
+      }
+    })
+    .filter(
+      (
+        item,
+      ): item is {
+        id: string
+        coin: string
+        side: "BUY" | "SELL"
+        price: number
+        quantity: number
+        time: number
+      } => Boolean(item),
+    )
+    .sort((a, b) => a.time - b.time)
+
+  const timeSet = new Set<number>()
+  timeSet.add(sanitizedStart)
+  timeSet.add(sanitizedEnd)
+
+  candlesByCoin.forEach((candles) => {
+    for (const candle of candles) {
+      if (candle.time >= sanitizedStart && candle.time <= sanitizedEnd) {
+        timeSet.add(candle.time)
+      }
+    }
+  })
+
+  for (const trade of sortedTrades) {
+    if (trade.time >= sanitizedStart && trade.time <= sanitizedEnd) {
+      timeSet.add(trade.time)
+    }
+  }
+
+  const sortedTimes = Array.from(timeSet).sort((a, b) => a - b)
+
+  const positions = new Map<string, { quantity: number; avgPrice: number }>()
+  const pointerState = new Map<string, { index: number; lastPrice: number | null }>()
+
+  candlesByCoin.forEach((candles, coin) => {
+    pointerState.set(coin, { index: 0, lastPrice: null })
+    candles.sort((a, b) => a.time - b.time)
+  })
+
+  const history: TimelinePoint[] = []
+  let realizedPnl = 0
   let totalTradedAmount = 0
+  let tradeIndex = 0
 
-  for (const [coin, posData] of positionMap.entries()) {
-    if (Math.abs(posData.totalQuantity) < 0.0001) continue
+  for (const time of sortedTimes) {
+    while (tradeIndex < sortedTrades.length && sortedTrades[tradeIndex].time <= time) {
+      const trade = sortedTrades[tradeIndex]
+      const price = trade.price
+      const quantity = trade.quantity
+      totalTradedAmount += Math.abs(quantity * price)
 
-    const currentPrice = currentPrices[coin] || 0
-    if (currentPrice > 0) {
-      const absQuantity = Math.abs(posData.totalQuantity)
-      const currentAmountUsd = currentPrice * absQuantity
-      const tradedAmountUsd = posData.tradedAmountUsd
-
-      let unrealizedPnl: number
-      if (posData.side === "LONG") {
-        unrealizedPnl = currentAmountUsd - tradedAmountUsd
+      const existing = positions.get(trade.coin) ?? { quantity: 0, avgPrice: 0 }
+      const position = { ...existing }
+      if (trade.side === "BUY") {
+        let remaining = quantity
+        if (position.quantity < 0) {
+          const closingQty = Math.min(Math.abs(position.quantity), remaining)
+          realizedPnl += (position.avgPrice - price) * closingQty
+          position.quantity += closingQty
+          remaining -= closingQty
+          if (Math.abs(position.quantity) < 1e-8) {
+            position.quantity = 0
+            position.avgPrice = 0
+          }
+        }
+        if (remaining > 0) {
+          const currentQty = position.quantity > 0 ? position.quantity : 0
+          const currentValue = currentQty > 0 ? position.avgPrice * currentQty : 0
+          const newQty = currentQty + remaining
+          const newValue = currentValue + price * remaining
+          position.quantity = newQty
+          position.avgPrice = newQty > 0 ? newValue / newQty : 0
+        }
       } else {
-        unrealizedPnl = tradedAmountUsd - currentAmountUsd
+        let remaining = quantity
+        if (position.quantity > 0) {
+          const closingQty = Math.min(position.quantity, remaining)
+          realizedPnl += (price - position.avgPrice) * closingQty
+          position.quantity -= closingQty
+          remaining -= closingQty
+          if (Math.abs(position.quantity) < 1e-8) {
+            position.quantity = 0
+            position.avgPrice = 0
+          }
+        }
+        if (remaining > 0) {
+          const currentQty = position.quantity < 0 ? Math.abs(position.quantity) : 0
+          const currentValue = currentQty > 0 ? position.avgPrice * currentQty : 0
+          const newQty = currentQty + remaining
+          const newValue = currentValue + price * remaining
+          position.quantity = -newQty
+          position.avgPrice = newQty > 0 ? newValue / newQty : 0
+        }
       }
 
-      totalUnrealizedPnl += unrealizedPnl
-      totalTradedAmount += Math.abs(tradedAmountUsd)
+      if (Math.abs(position.quantity) < 1e-8) {
+        positions.delete(trade.coin)
+      } else {
+        positions.set(trade.coin, position)
+      }
+
+      tradeIndex += 1
     }
+
+    let unrealizedPnl = 0
+
+    for (const [coin, position] of positions.entries()) {
+      const candles = candlesByCoin.get(coin) ?? []
+      const pointer = pointerState.get(coin)
+      if (pointer) {
+        while (pointer.index < candles.length && candles[pointer.index].time <= time) {
+          pointer.lastPrice = candles[pointer.index].close
+          pointer.index += 1
+        }
+      }
+
+      let price = pointer?.lastPrice ?? null
+
+      if ((price === null || price <= 0) && time >= sanitizedEnd) {
+        const fallbackPrice = toFiniteNumber(currentPrices[coin])
+        price = fallbackPrice > 0 ? fallbackPrice : null
+      }
+
+      if (price === null || price <= 0) {
+        continue
+      }
+
+      if (position.quantity > 0) {
+        unrealizedPnl += (price - position.avgPrice) * position.quantity
+      } else if (position.quantity < 0) {
+        const absQty = Math.abs(position.quantity)
+        unrealizedPnl += (position.avgPrice - price) * absQty
+      }
+    }
+
+    const value = realizedPnl + unrealizedPnl
+    history.push({ time, value })
   }
 
-  const totalValue = totalTradedAmount + totalUnrealizedPnl
+  if (history.length === 1) {
+    history.push({ time: sanitizedEnd, value: history[0].value })
+  }
 
   return {
-    totalValue: Math.max(0, totalValue),
-    unrealizedPnl: totalUnrealizedPnl,
+    history,
+    realizedPnl,
     totalTradedAmount,
+  }
+}
+
+function calculateBotPerformance(
+  trades: TradeRecord[],
+  currentPrices: Record<string, number>,
+  candlesByCoin: Map<string, CandleRecord[]>,
+  startTime: number,
+  endTime: number
+): BotPerformanceComputation {
+  const performanceInputs: PerformanceTradeInput[] = trades
+    .map((trade) => {
+      const timestampValue = toTimestamp(trade.executed_at)
+      const timestamp = Number.isNaN(timestampValue) ? endTime : timestampValue
+      return {
+        id: trade.id,
+        coin: trade.coin,
+        side: (trade.side === "SELL" ? "SELL" : "BUY") as "BUY" | "SELL",
+        price: toFiniteNumber(trade.price),
+        quantity: toFiniteNumber(trade.quantity),
+        timestamp,
+      }
+    })
+    .filter(
+      (input) =>
+        input.quantity > 0 &&
+        input.price > 0 &&
+        Number.isFinite(input.timestamp),
+    )
+
+  const tradeMetrics = computePerformanceFromTrades(performanceInputs)
+  const timeline = buildPerformanceTimeline(trades, candlesByCoin, currentPrices, startTime, endTime)
+  const history = timeline.history.length > 0 ? timeline.history : [
+    { time: endTime, value: tradeMetrics.metrics.totalPnl },
+  ]
+  const accountValue = history[history.length - 1]?.value ?? tradeMetrics.metrics.totalPnl
+  const baseValue = history[0]?.value ?? 0
+  const realizedPnl = timeline.realizedPnl
+  const unrealizedPnl = accountValue - realizedPnl
+
+  const adjustedMetrics = { ...tradeMetrics.metrics }
+  adjustedMetrics.accountValue = accountValue
+  adjustedMetrics.totalPnl = accountValue
+  adjustedMetrics.pnlPercentage =
+    Math.abs(baseValue) > 1e-8 ? ((accountValue - baseValue) / Math.abs(baseValue)) * 100 : 0
+
+  const accountHistory = history.map((point) => ({
+    date: new Date(point.time).toISOString(),
+    value: Number(point.value.toFixed(2)),
+  }))
+
+  return {
+    totalValue: accountValue,
+    unrealizedPnl,
+    totalTradedAmount: timeline.totalTradedAmount,
+    history,
+    metrics: adjustedMetrics,
+    accountHistory,
+    recentTrades: tradeMetrics.recentTrades,
+    realizedPnl,
   }
 }
 
@@ -362,6 +534,44 @@ export async function GET(request: Request) {
       allCoins.add(trade.coin)
     }
 
+    const now = Date.now()
+    const historyWindowMs = 3 * 24 * 60 * 60 * 1000
+    const historyStart = now - historyWindowMs
+
+    let candlesByCoin: Map<string, CandleRecord[]> = new Map()
+    if (allCoins.size > 0) {
+      const { data: candleRows, error: candlesError } = await supabase
+        .from("price_candles")
+        .select("coin, time, close")
+        .in("coin", Array.from(allCoins))
+        .eq("interval", "5m")
+        .gte("time", historyStart)
+        .lte("time", now)
+        .order("time", { ascending: true })
+
+      if (candlesError) {
+        console.error("[public-bots API] Error fetching price candles:", candlesError)
+      } else if (candleRows) {
+        const grouped = new Map<string, CandleRecord[]>()
+        for (const row of candleRows) {
+          const coin = row.coin
+          const timeValue =
+            typeof row.time === "number"
+              ? row.time
+              : Number.parseFloat(String(row.time))
+          const closeValue = toFiniteNumber(row.close)
+          if (!Number.isFinite(timeValue) || closeValue <= 0) {
+            continue
+          }
+          const bucket = grouped.get(coin) ?? []
+          bucket.push({ coin, time: timeValue, close: closeValue })
+          grouped.set(coin, bucket)
+        }
+        grouped.forEach((bucket) => bucket.sort((a, b) => a.time - b.time))
+        candlesByCoin = grouped
+      }
+    }
+
     // Fetch current prices using direct API calls (avoiding HyperliquidClient in Node.js)
     const mainnetPrices: Record<string, number> = {}
     const testnetPrices: Record<string, number> = {}
@@ -448,10 +658,22 @@ export async function GET(request: Request) {
       }
 
       const currentPrices = isTestnet ? testnetPrices : mainnetPrices
-      const performance = await calculateBotPerformance(bot.id, botTrades, currentPrices)
+      const performance = calculateBotPerformance(botTrades, currentPrices, candlesByCoin, historyStart, now)
 
-      const baseValue = performance.totalTradedAmount > 0 ? performance.totalTradedAmount : 10000
-      const change = baseValue > 0 ? ((performance.totalValue - baseValue) / baseValue) * 100 : 0
+      const historyPoints = performance.history.map((point) => ({
+        time: point.time,
+        value: Number(point.value.toFixed(2)),
+      }))
+
+      const firstHistoryValue = historyPoints[0]?.value ?? 0
+      const fallbackBaseline =
+        performance.totalTradedAmount > 0 ? performance.totalTradedAmount : 10000
+      const baseline =
+        Math.abs(firstHistoryValue) > 1e-8 ? firstHistoryValue : fallbackBaseline
+      const change =
+        baseline !== 0
+          ? ((performance.totalValue - baseline) / Math.abs(baseline)) * 100
+          : 0
 
       leaderboard.push({
         botId: bot.id,
@@ -465,7 +687,46 @@ export async function GET(request: Request) {
         change,
         totalTradedAmount: performance.totalTradedAmount,
         isTestnet,
+        history: historyPoints,
       })
+
+      const metricsPayload: Record<string, number> = {}
+      for (const [key, value] of Object.entries(performance.metrics)) {
+        metricsPayload[key] = Number(toFiniteNumber(value).toFixed(6))
+      }
+      metricsPayload.unrealizedPnl = Number(performance.unrealizedPnl.toFixed(6))
+      metricsPayload.realizedPnl = Number(performance.realizedPnl.toFixed(6))
+      metricsPayload.totalTradedAmount = Number(performance.totalTradedAmount.toFixed(6))
+      metricsPayload.totalValue = Number(performance.totalValue.toFixed(6))
+
+      const periodStartIso =
+        performance.accountHistory[0]?.date ?? new Date(historyStart).toISOString()
+      const periodEndIso =
+        performance.accountHistory[performance.accountHistory.length - 1]?.date ??
+        new Date(now).toISOString()
+      const snapshotPayload = {
+        bot_id: bot.id,
+        period_start: periodStartIso,
+        period_end: periodEndIso,
+        computed_at: new Date().toISOString(),
+        status: "ready",
+        error_message: null,
+        metrics: metricsPayload,
+        account_history: performance.accountHistory,
+        prompt: "",
+        recent_trades: performance.recentTrades,
+      }
+
+      const { error: snapshotError } = await supabase
+        .from("bot_performance_snapshots")
+        .insert(snapshotPayload)
+
+      if (snapshotError) {
+        console.error(
+          `[public-bots API] Failed to insert performance snapshot for bot ${bot.id}:`,
+          snapshotError,
+        )
+      }
     }
     leaderboard.sort((a, b) => b.totalValue - a.totalValue)
 

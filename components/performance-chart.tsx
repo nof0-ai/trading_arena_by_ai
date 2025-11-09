@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Legend } from "recharts"
 
 interface BotLeaderboardEntry {
@@ -15,11 +15,108 @@ interface BotLeaderboardEntry {
   change: number
   totalTradedAmount: number
   isTestnet: boolean
+  history: Array<{ time: number; value: number }>
 }
 
 interface ChartDataPoint {
   time: string
   [botName: string]: string | number
+}
+
+function buildChartData(
+  bots: BotLeaderboardEntry[],
+  mode: "$" | "%",
+  range: "ALL" | "72H"
+): ChartDataPoint[] {
+  if (bots.length === 0) {
+    return []
+  }
+
+  const now = Date.now()
+  const cutoff =
+    range === "72H" ? now - 72 * 60 * 60 * 1000 : Number.NEGATIVE_INFINITY
+
+  const sortedHistories = new Map<
+    string,
+    Array<{ time: number; value: number }>
+  >()
+  const baselines = new Map<string, number>()
+  const timeSet = new Set<number>()
+
+  bots.forEach((bot) => {
+    const history = Array.isArray(bot.history) ? bot.history : []
+    const filtered = history
+      .filter(
+        (point) =>
+          point &&
+          typeof point.time === "number" &&
+          typeof point.value === "number" &&
+          point.time >= cutoff,
+      )
+      .map((point) => ({
+        time: point.time,
+        value: point.value,
+      }))
+      .sort((a, b) => a.time - b.time)
+
+    filtered.forEach((point) => timeSet.add(point.time))
+    sortedHistories.set(bot.botName, filtered)
+    baselines.set(bot.botName, filtered.length > 0 ? filtered[0].value : 0)
+  })
+
+  const sortedTimes = Array.from(timeSet).sort((a, b) => a - b)
+  if (sortedTimes.length === 0) {
+    return []
+  }
+
+  const indices = new Map<string, number>()
+  const lastValueMap = new Map<string, number>()
+  bots.forEach((bot) => indices.set(bot.botName, 0))
+
+  const chartData: ChartDataPoint[] = []
+
+  for (const time of sortedTimes) {
+    const label = new Date(time).toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+
+    const point: ChartDataPoint = { time: label }
+
+    bots.forEach((bot) => {
+      const history = sortedHistories.get(bot.botName) ?? []
+      let index = indices.get(bot.botName) ?? 0
+
+      while (index < history.length && history[index].time <= time) {
+        lastValueMap.set(bot.botName, history[index].value)
+        index += 1
+      }
+
+      indices.set(bot.botName, index)
+      const lastValue = lastValueMap.get(bot.botName)
+      if (lastValue === undefined) {
+        return
+      }
+
+      if (mode === "%") {
+        const baseline = baselines.get(bot.botName) ?? 0
+        if (Math.abs(baseline) > 1e-8) {
+          point[bot.botName] = ((lastValue - baseline) / Math.abs(baseline)) * 100
+        } else {
+          point[bot.botName] = 0
+        }
+      } else {
+        point[bot.botName] = lastValue
+      }
+    })
+
+    chartData.push(point)
+  }
+
+  return chartData
 }
 
 export function PerformanceChart() {
@@ -28,69 +125,35 @@ export function PerformanceChart() {
   const [data, setData] = useState<ChartDataPoint[]>([])
   const [topBots, setTopBots] = useState<BotLeaderboardEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const historyRef = useRef<Map<string, Array<{ time: number; value: number }>>>(new Map())
-  const isInitialLoadRef = useRef(true)
 
-  const loadLeaderboard = async (isInitial = false) => {
-    if (isInitial) {
+  const loadLeaderboard = async (showLoading = false) => {
+    if (showLoading) {
       setIsLoading(true)
     }
 
-    const response = await fetch("/api/public-bots?type=leaderboard")
-    if (response.ok) {
-      const result = await response.json()
-      const leaderboard: BotLeaderboardEntry[] = result.leaderboard || []
-      
-      // Get top 10 bots
-      const top10 = leaderboard.slice(0, 10)
-      setTopBots(top10)
-
-      // Store current values in history
-      const now = Date.now()
-      const cutoffTime = timeRange === "72H" ? now - 72 * 60 * 60 * 1000 : 0
-
-      top10.forEach((bot) => {
-        if (!historyRef.current.has(bot.botName)) {
-          historyRef.current.set(bot.botName, [])
-        }
-        const history = historyRef.current.get(bot.botName)!
-        history.push({ time: now, value: bot.totalValue })
-        
-        // Remove old data points based on time range
-        const filtered = history.filter((point) => point.time >= cutoffTime)
-        historyRef.current.set(bot.botName, filtered)
-      })
-
-      // Generate chart data from history
-      const allTimes = new Set<number>()
-      historyRef.current.forEach((history) => {
-        history.forEach((point) => allTimes.add(point.time))
-      })
-
-      const sortedTimes = Array.from(allTimes).sort((a, b) => a - b)
-      const chartData: ChartDataPoint[] = sortedTimes.map((time) => {
-        const date = new Date(time)
-        const timeStr = `${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}`
-        
-        const point: ChartDataPoint = { time: timeStr }
-        top10.forEach((bot) => {
-          const history = historyRef.current.get(bot.botName) || []
-          const valuePoint = history.find((p) => p.time === time)
-          if (valuePoint) {
-            point[bot.botName] = valuePoint.value
-          }
-        })
-        return point
-      })
-
-      setData(chartData)
-    } else {
-      console.error("[PerformanceChart] Failed to load leaderboard")
-    }
-
-    if (isInitial) {
-      setIsLoading(false)
-      isInitialLoadRef.current = false
+    try {
+      const response = await fetch("/api/public-bots?type=leaderboard")
+      if (response.ok) {
+        const result = await response.json()
+        const leaderboard: BotLeaderboardEntry[] = (result.leaderboard || []).map(
+          (entry: BotLeaderboardEntry) => ({
+            ...entry,
+            history: Array.isArray(entry.history) ? entry.history : [],
+          }),
+        )
+        const top10 = leaderboard.slice(0, 10)
+        setTopBots(top10)
+      } else {
+        console.error("[PerformanceChart] Failed to load leaderboard")
+        setTopBots([])
+      }
+    } catch (error) {
+      console.error("[PerformanceChart] Error loading leaderboard:", error)
+      setTopBots([])
+    } finally {
+      if (showLoading) {
+        setIsLoading(false)
+      }
     }
   }
 
@@ -106,44 +169,11 @@ export function PerformanceChart() {
     return () => clearInterval(interval)
   }, [])
 
-  // Update chart data when time range changes
   useEffect(() => {
-    if (!isInitialLoadRef.current && topBots.length > 0) {
-      const now = Date.now()
-      const cutoffTime = timeRange === "72H" ? now - 72 * 60 * 60 * 1000 : 0
+    setData(buildChartData(topBots, viewMode, timeRange))
+  }, [topBots, viewMode, timeRange])
 
-      // Filter history based on time range
-      historyRef.current.forEach((history, botName) => {
-        const filtered = history.filter((point) => point.time >= cutoffTime)
-        historyRef.current.set(botName, filtered)
-      })
-
-      // Regenerate chart data
-      const allTimes = new Set<number>()
-      historyRef.current.forEach((history) => {
-        history.forEach((point) => allTimes.add(point.time))
-      })
-
-      const sortedTimes = Array.from(allTimes).sort((a, b) => a - b)
-      const chartData: ChartDataPoint[] = sortedTimes.map((time) => {
-        const date = new Date(time)
-        const timeStr = `${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}`
-        
-        const point: ChartDataPoint = { time: timeStr }
-        topBots.forEach((bot) => {
-          const history = historyRef.current.get(bot.botName) || []
-          const valuePoint = history.find((p) => p.time === time)
-          if (valuePoint) {
-            point[bot.botName] = valuePoint.value
-          }
-        })
-        return point
-      })
-
-      setData(chartData)
-    }
-  }, [timeRange, topBots])
-
+  // Update chart data when time range changes
   // Color palette for top 10 bots
   const colors = [
     "#6366f1", // indigo
@@ -157,6 +187,41 @@ export function PerformanceChart() {
     "#06b6d4", // cyan
     "#84cc16", // lime
   ]
+
+  const numericValues = data.flatMap((point) =>
+    topBots
+      .map((bot) => {
+        const value = point[bot.botName]
+        return typeof value === "number" ? value : null
+      })
+      .filter((v): v is number => v !== null),
+  )
+
+  const maxValue =
+    numericValues.length > 0
+      ? Math.max(...numericValues)
+      : viewMode === "%"
+        ? 0
+        : 10000
+  const minValue =
+    numericValues.length > 0
+      ? Math.min(...numericValues)
+      : viewMode === "%"
+        ? 0
+        : 0
+
+  const percentDomainMin = Math.floor(minValue / 10) * 10
+  const percentDomainMax = Math.ceil(maxValue / 10) * 10
+  const yAxisDomain =
+    viewMode === "%"
+      ? [
+          percentDomainMin === percentDomainMax ? -10 : percentDomainMin,
+          percentDomainMin === percentDomainMax ? 10 : percentDomainMax,
+        ]
+      : [
+          0,
+          Math.ceil(Math.max(maxValue, 10000) / 5000) * 5000,
+        ]
 
   if (isLoading) {
     return (
@@ -177,15 +242,6 @@ export function PerformanceChart() {
       </div>
     )
   }
-
-  // Calculate max value for Y axis
-  const maxValue = Math.max(
-    ...data.flatMap((point) =>
-      topBots.map((bot) => (point[bot.botName] as number) || 0)
-    ),
-    10000
-  )
-  const yAxisMax = Math.ceil(maxValue / 5000) * 5000
 
   return (
     <div className="relative">
@@ -248,8 +304,12 @@ export function PerformanceChart() {
               stroke="#000000"
               style={{ fontSize: "10px", fontFamily: "Geist Mono, monospace" }}
               tickLine={false}
-              domain={[0, yAxisMax]}
-              tickFormatter={(value) => `$${value.toLocaleString()}`}
+              domain={yAxisDomain as [number, number]}
+              tickFormatter={(value) =>
+                viewMode === "%"
+                  ? `${value.toFixed(0)}%`
+                  : `$${value.toLocaleString()}`
+              }
             />
             <Tooltip
               contentStyle={{
@@ -258,7 +318,14 @@ export function PerformanceChart() {
                 fontSize: "12px",
                 backgroundColor: "white",
               }}
-              formatter={(value: number) => `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              formatter={(value: number) =>
+                viewMode === "%"
+                  ? `${value.toFixed(2)}%`
+                  : `$${value.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}`
+              }
             />
             <Legend
               wrapperStyle={{ fontSize: "10px", fontFamily: "monospace" }}
