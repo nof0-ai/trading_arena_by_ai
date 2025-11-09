@@ -132,19 +132,19 @@ export function PerformanceChart() {
     }
 
     try {
-      const response = await fetch("/api/public-bots?type=leaderboard")
-      if (response.ok) {
-        const result = await response.json()
+    const response = await fetch("/api/public-bots?type=leaderboard")
+    if (response.ok) {
+      const result = await response.json()
         const leaderboard: BotLeaderboardEntry[] = (result.leaderboard || []).map(
           (entry: BotLeaderboardEntry) => ({
             ...entry,
             history: Array.isArray(entry.history) ? entry.history : [],
           }),
         )
-        const top10 = leaderboard.slice(0, 10)
-        setTopBots(top10)
-      } else {
-        console.error("[PerformanceChart] Failed to load leaderboard")
+      const top10 = leaderboard.slice(0, 10)
+      setTopBots(top10)
+    } else {
+      console.error("[PerformanceChart] Failed to load leaderboard")
         setTopBots([])
       }
     } catch (error) {
@@ -152,7 +152,7 @@ export function PerformanceChart() {
       setTopBots([])
     } finally {
       if (showLoading) {
-        setIsLoading(false)
+      setIsLoading(false)
       }
     }
   }
@@ -221,7 +221,7 @@ export function PerformanceChart() {
       : [
           0,
           Math.ceil(Math.max(maxValue, 10000) / 5000) * 5000,
-        ]
+  ]
 
   if (isLoading) {
     return (

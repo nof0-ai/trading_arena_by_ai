@@ -27,6 +27,7 @@ interface TradeRecord {
   quantity: number | null
   leverage: number | null
   executed_at: string | null
+  analysis_id: string | null
 }
 
 interface CandleRecord {
@@ -91,6 +92,14 @@ interface CompletedTrade {
   holdingTime: string
   pnl: number
   isTestnet: boolean
+  entryAnalysisId: string | null
+  exitAnalysisId: string | null
+  entryAnalysis?: string | null
+  exitAnalysis?: string | null
+  entryRecommendation?: string | null
+  exitRecommendation?: string | null
+  entryConfidence?: number | null
+  exitConfidence?: number | null
 }
 
 interface ModelChat {
@@ -513,7 +522,7 @@ export async function GET(request: Request) {
     // Get all filled trades
     const { data: trades, error: tradesError } = await supabase
       .from("trades")
-      .select("id, bot_id, coin, side, price, quantity, leverage, executed_at")
+      .select("id, bot_id, coin, side, price, quantity, leverage, executed_at, analysis_id")
       .in("bot_id", botIds)
       .eq("status", "FILLED")
       .order("executed_at", { ascending: true })
@@ -905,13 +914,14 @@ export async function GET(request: Request) {
     }
 
     // Calculate completed trades
-    const completedTrades: CompletedTrade[] = []
+    let completedTrades: CompletedTrade[] = []
     const tradesByBotAndCoin = new Map<string, Map<string, Array<{
       id: string
       side: string
       price: number
       quantity: number
       time: number
+      analysisId: string | null
     }>>>()
 
     for (const trade of tradesData) {
@@ -939,6 +949,7 @@ export async function GET(request: Request) {
         price: tradePrice,
         quantity: tradeQuantity,
         time: new Date(trade.executed_at).getTime(),
+        analysisId: trade.analysis_id ?? null,
       })
     }
 
@@ -965,6 +976,7 @@ export async function GET(request: Request) {
           price: number
           quantity: number
           time: number
+          analysisId: string | null
         } | null = null
 
         for (const trade of coinTrades) {
@@ -1014,6 +1026,8 @@ export async function GET(request: Request) {
                 holdingTime,
                 pnl,
                 isTestnet,
+                entryAnalysisId: position.analysisId ?? null,
+                exitAnalysisId: trade.analysisId ?? null,
               })
 
               if (Math.abs(position.quantity) > Math.abs(trade.quantity)) {
@@ -1041,7 +1055,169 @@ export async function GET(request: Request) {
       }
     }
 
-    completedTrades.sort((a, b) => b.time - a.time)
+    const analysisIds = new Set<string>()
+    for (const trade of completedTrades) {
+      if (trade.entryAnalysisId) {
+        analysisIds.add(trade.entryAnalysisId)
+      }
+      if (trade.exitAnalysisId) {
+        analysisIds.add(trade.exitAnalysisId)
+      }
+    }
+
+    const sortedCompletedTrades = [...completedTrades].sort((a, b) => b.time - a.time)
+    const perBotTradeLimit = 3
+    const perBotCounts = new Map<string, number>()
+    const latestCompletedTrades: CompletedTrade[] = []
+    const maxCompletedTrades = 200
+
+    for (const trade of sortedCompletedTrades) {
+      const count = perBotCounts.get(trade.botId) ?? 0
+      if (count >= perBotTradeLimit) {
+        continue
+      }
+      latestCompletedTrades.push(trade)
+      perBotCounts.set(trade.botId, count + 1)
+      if (latestCompletedTrades.length >= maxCompletedTrades) {
+        break
+      }
+    }
+
+    let completedTradesResponse =
+      latestCompletedTrades.length > 0 ? latestCompletedTrades : sortedCompletedTrades.slice(0, 100)
+
+    if (completedTradesResponse.length === 0) {
+      const fallbackCounts = new Map<string, number>()
+      const fallbackTrades: CompletedTrade[] = []
+      const rawTradesSorted = [...tradesData].sort((a, b) => {
+        const timeA = Date.parse(a.executed_at ?? "")
+        const timeB = Date.parse(b.executed_at ?? "")
+        return timeB - timeA
+      })
+
+      for (const trade of rawTradesSorted) {
+        const botId = trade.bot_id
+        const botInfo = botInfoMap.get(botId)
+        if (!botInfo) {
+          continue
+        }
+        if (!trade.executed_at) {
+          continue
+        }
+        const timestamp = Date.parse(trade.executed_at)
+        if (Number.isNaN(timestamp)) {
+          continue
+        }
+        const count = fallbackCounts.get(botId) ?? 0
+        if (count >= perBotTradeLimit) {
+          continue
+        }
+        const quantity = toFiniteNumber(trade.quantity)
+        const price = toFiniteNumber(trade.price)
+        if (quantity <= 0 || price <= 0) {
+          continue
+        }
+
+        let isTestnet = false
+        const apiWalletId = botApiWalletMap.get(botId)
+        if (apiWalletId) {
+          isTestnet = apiWalletNetworkMap.get(apiWalletId) || false
+        }
+
+        const currentPrice = toFiniteNumber(
+          (isTestnet ? testnetPrices[trade.coin] : mainnetPrices[trade.coin]) ?? price,
+        )
+        const priceTo = currentPrice > 0 ? currentPrice : price
+        const signedQuantity = trade.side === "SELL" ? -quantity : quantity
+        const notional = Math.abs(quantity * price)
+        const pnl =
+          trade.side === "SELL"
+            ? (price - priceTo) * quantity
+            : (priceTo - price) * quantity
+
+        fallbackTrades.push({
+          id: trade.id,
+          botId,
+          botName: botInfo.name,
+          model: botInfo.model,
+          modelIcon: botInfo.icon,
+          modelImage: botInfo.modelImage,
+          type: trade.side === "SELL" ? "short" : "long",
+          asset: trade.coin,
+          time: timestamp,
+          priceFrom: price,
+          priceTo,
+          quantity: signedQuantity,
+          notionalFrom: notional,
+          notionalTo: Math.abs(quantity * priceTo),
+          holdingTime: "—",
+          pnl,
+          isTestnet,
+          entryAnalysisId: trade.analysis_id ?? null,
+          exitAnalysisId: null,
+        })
+
+        if (trade.analysis_id) {
+          analysisIds.add(trade.analysis_id)
+        }
+
+        fallbackCounts.set(botId, count + 1)
+        if (fallbackTrades.length >= maxCompletedTrades) {
+          break
+        }
+      }
+
+      completedTradesResponse = fallbackTrades
+    }
+
+    let completedTradeAnalyses = new Map<
+      string,
+      { analysis: string | null; recommendation: string | null; confidence: number | null }
+    >()
+
+    if (analysisIds.size > 0) {
+      const { data: analysisRows, error: completedAnalysisError } = await supabase
+        .from("price_analyses")
+        .select("id, analysis, recommendation, confidence")
+        .in("id", Array.from(analysisIds))
+
+      if (completedAnalysisError) {
+        console.error("[public-bots API] Error fetching completed trade analyses:", completedAnalysisError)
+      } else if (analysisRows) {
+        completedTradeAnalyses = new Map(
+          analysisRows.map((row) => [
+            row.id,
+            {
+              analysis: typeof row.analysis === "string" ? row.analysis : null,
+              recommendation: typeof row.recommendation === "string" ? row.recommendation : null,
+              confidence: row.confidence ?? null,
+            },
+          ]),
+        )
+      }
+    }
+
+    completedTradesResponse = completedTradesResponse.map((trade) => {
+      const entryAnalysis = trade.entryAnalysisId ? completedTradeAnalyses.get(trade.entryAnalysisId) : null
+      const exitAnalysis = trade.exitAnalysisId ? completedTradeAnalyses.get(trade.exitAnalysisId) : null
+
+      return {
+        ...trade,
+        entryAnalysis: entryAnalysis?.analysis ?? null,
+        entryRecommendation: entryAnalysis?.recommendation ?? null,
+        entryConfidence: entryAnalysis ? toFiniteNumber(entryAnalysis.confidence) : null,
+        exitAnalysis: exitAnalysis?.analysis ?? null,
+        exitRecommendation: exitAnalysis?.recommendation ?? null,
+        exitConfidence: exitAnalysis ? toFiniteNumber(exitAnalysis.confidence) : null,
+      }
+    })
+
+    console.log("[public-bots] completedTrades summary", {
+      totalComputed: sortedCompletedTrades.length,
+      perBotLimited: latestCompletedTrades.length,
+      returned: completedTradesResponse.length,
+      fallbackUsed: sortedCompletedTrades.length === 0,
+    })
 
     // Return data based on type parameter
     if (dataType === "leaderboard") {
@@ -1051,14 +1227,14 @@ export async function GET(request: Request) {
     } else if (dataType === "positions") {
       return NextResponse.json({ positions }, { headers: corsHeaders })
     } else if (dataType === "completed-trades") {
-      return NextResponse.json({ completedTrades: completedTrades.slice(0, 100) }, { headers: corsHeaders })
+      return NextResponse.json({ completedTrades: completedTradesResponse }, { headers: corsHeaders })
     } else {
       return NextResponse.json(
         {
           leaderboard,
           modelChats,
           positions,
-          completedTrades: completedTrades.slice(0, 100),
+          completedTrades: completedTradesResponse,
         },
         { headers: corsHeaders }
       )

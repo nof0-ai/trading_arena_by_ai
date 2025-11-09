@@ -22,6 +22,14 @@ interface CompletedTrade {
   holdingTime: string
   pnl: number
   isTestnet: boolean
+  entryAnalysisId?: string | null
+  exitAnalysisId?: string | null
+  entryAnalysis?: string | null
+  exitAnalysis?: string | null
+  entryRecommendation?: string | null
+  exitRecommendation?: string | null
+  entryConfidence?: number | null
+  exitConfidence?: number | null
 }
 
 interface ModelChat {
@@ -77,6 +85,11 @@ export function TradeHistory() {
         const response = await fetch("/api/public-bots")
         if (response.ok) {
           const data = await response.json()
+          console.log("[TradeHistory] fetched payload", {
+            completedTrades: data.completedTrades?.length ?? 0,
+            modelChats: data.modelChats?.length ?? 0,
+            positions: data.positions?.length ?? 0,
+          })
           setCompletedTrades(data.completedTrades || [])
           setModelChats(data.modelChats || [])
           setPositions(data.positions || [])
@@ -94,7 +107,7 @@ export function TradeHistory() {
           })
           setAvailableModels(Array.from(models))
         } else {
-          console.error("[TradeHistory] Failed to load data")
+          console.error("[TradeHistory] Failed to load data", response.status, await response.text())
           setCompletedTrades([])
           setModelChats([])
           setPositions([])
@@ -386,6 +399,55 @@ export function TradeHistory() {
                         className="text-xs"
                       />
                     </div>
+                    {(trade.exitAnalysis || trade.entryAnalysis) && (
+                      <div className="pl-6 mt-4 space-y-3">
+                        <div className="font-mono text-[11px] font-bold tracking-wide text-gray-700">
+                          WHY THIS TRADE HAPPENED
+                        </div>
+                        {trade.exitAnalysis && (
+                          <div className="space-y-1">
+                            <div className="font-mono text-[11px] font-bold uppercase text-gray-600">
+                              Exit Signal
+                            </div>
+                            <p className="font-mono text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
+                              {trade.exitAnalysis}
+                            </p>
+                            <div className="font-mono text-[10px] text-gray-500">
+                              Recommendation:{" "}
+                              {trade.exitRecommendation
+                                ? trade.exitRecommendation.toUpperCase()
+                                : "N/A"}
+                              {" · "}
+                              Confidence:{" "}
+                              {typeof trade.exitConfidence === "number"
+                                ? `${Math.round(trade.exitConfidence)}%`
+                                : "N/A"}
+                            </div>
+                          </div>
+                        )}
+                        {trade.entryAnalysis && (
+                          <div className="space-y-1">
+                            <div className="font-mono text-[11px] font-bold uppercase text-gray-600">
+                              Entry Signal
+                            </div>
+                            <p className="font-mono text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
+                              {trade.entryAnalysis}
+                            </p>
+                            <div className="font-mono text-[10px] text-gray-500">
+                              Recommendation:{" "}
+                              {trade.entryRecommendation
+                                ? trade.entryRecommendation.toUpperCase()
+                                : "N/A"}
+                              {" · "}
+                              Confidence:{" "}
+                              {typeof trade.entryConfidence === "number"
+                                ? `${Math.round(trade.entryConfidence)}%`
+                                : "N/A"}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))
