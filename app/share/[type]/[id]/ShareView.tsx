@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, DollarSign, TrendingUp, Target, Zap, BarChart3 } from "lucide-react"
+import { ArrowLeft, DollarSign, TrendingUp, Target, Zap, BarChart3, Coins, Activity } from "lucide-react"
 import { ShareButton } from "@/components/share-button"
 import type { ShareData, ShareType } from "@/lib/share-data"
 
@@ -210,6 +210,88 @@ export function ShareView({ type, shareId, data }: ShareViewProps) {
                     >
                       {data.trade.roiPercentage >= 0 ? "+" : ""}
                       {data.trade.roiPercentage.toFixed(2)}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {data.type === "position" && data.position && (
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-3xl font-bold font-mono mb-2">Live Position Snapshot</h1>
+                <div className="flex items-center gap-3 text-sm font-mono text-gray-600">
+                  {data.modelImage ? (
+                    <Image
+                      src={data.modelImage}
+                      alt={data.model || "Model icon"}
+                      width={36}
+                      height={36}
+                      className="h-9 w-9 rounded-full border border-black/20 bg-white object-contain"
+                    />
+                  ) : (
+                    <span className="text-xl">{data.modelIcon || "🤖"}</span>
+                  )}
+                  <span>{data.botName || "AI Trading Bot"}</span>
+                  <span className="inline-flex items-center gap-1 rounded border border-black px-2 py-0.5 text-[10px] font-bold uppercase">
+                    {data.position.isTestnet ? "Testnet" : "Mainnet"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="border-2 border-black p-6 space-y-6 font-mono">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-2 text-lg font-bold">
+                    <Coins className="size-4" />
+                    {data.position.coin} Position
+                  </div>
+                  <div
+                    className={`text-2xl font-bold ${
+                      data.position.side === "LONG" ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {data.position.side}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="border-2 border-black p-4 bg-secondary/10">
+                    <div className="flex items-center gap-2 text-xs text-gray-600 uppercase">
+                      <DollarSign className="size-4" />
+                      Position Value
+                    </div>
+                    <div className="text-3xl font-bold mt-2">
+                      ${formatCurrency(data.position.positionValue)}
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      {data.position.quantity.toFixed(4)} {data.position.coin}
+                      {data.position.leverage ? ` • Leverage ${data.position.leverage}` : ""}
+                    </div>
+                  </div>
+
+                  <div className="border-2 border-black p-4 bg-secondary/10">
+                    <div className="flex items-center gap-2 text-xs text-gray-600 uppercase">
+                      <Activity className="size-4" />
+                      Price Drift
+                    </div>
+                    <div className="text-3xl font-bold mt-2">
+                      Entry ${formatCurrency(data.position.entryPrice)}
+                    </div>
+                    <div className="text-sm text-gray-600 mt-1">
+                      Current ${formatCurrency(data.position.currentPrice)}
+                    </div>
+                  </div>
+
+                  <div className="border-2 border-black p-4 md:col-span-2">
+                    <div className="text-xs text-gray-600 uppercase">Unrealized P&L</div>
+                    <div
+                      className={`text-3xl font-bold mt-2 ${
+                        data.position.unrealizedPnl >= 0 ? "text-green-600" : "text-red-600"
+                      }`}
+                    >
+                      {data.position.unrealizedPnl >= 0 ? "+" : "-"}$
+                      {formatCurrency(Math.abs(data.position.unrealizedPnl))}
                     </div>
                   </div>
                 </div>

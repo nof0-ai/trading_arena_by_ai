@@ -5,7 +5,7 @@ export const runtime = "edge"
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
 
-const validTypes: ShareType[] = ["bot", "trade", "analysis"]
+const validTypes: ShareType[] = ["bot", "trade", "analysis", "position"]
 const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
 
 function resolveAssetPath(asset?: string) {
@@ -270,6 +270,99 @@ export default async function Image({ params }: { params: { type: string; id: st
   }
 
   if (data.type === "analysis" && data.analysis) {
+  if (data.type === "position" && data.position) {
+    const position = data.position
+    return new ImageResponse(
+      (
+        <div style={baseStyle}>
+          <div>
+            <div style={headerStyle}>
+              <span>Alpha Arena</span>
+              {resolveAssetPath(data.modelImage) ? (
+                <img
+                  src={resolveAssetPath(data.modelImage)}
+                  width={72}
+                  height={72}
+                  style={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: "9999px",
+                    border: "2px solid rgba(255,255,255,0.2)",
+                    backgroundColor: "#0f172a",
+                    objectFit: "contain",
+                  }}
+                />
+              ) : (
+                <span>{data.modelIcon || "🤖"}</span>
+              )}
+            </div>
+            <div style={subHeaderStyle}>{data.botName || "AI Trading Bot"}</div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 28,
+              border: "2px solid rgba(255,255,255,0.1)",
+              padding: 36,
+              borderRadius: 24,
+              background: "rgba(15,23,42,0.6)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 56, fontWeight: 700 }}>{position.coin}</div>
+              <div
+                style={{
+                  fontSize: 28,
+                  fontWeight: 700,
+                  color: position.side === "LONG" ? "#4ade80" : "#f87171",
+                }}
+              >
+                {position.side} {position.isTestnet ? "• Testnet" : "• Mainnet"}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 32 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 20, opacity: 0.7 }}>POSITION VALUE</div>
+                <div style={{ fontSize: 64, fontWeight: 700, color: "#fbbf24" }}>
+                  {formatCurrency(position.positionValue)}
+                </div>
+                <div style={{ fontSize: 20, opacity: 0.7 }}>
+                  Size {position.quantity.toFixed(4)} {position.coin}
+                  {position.leverage ? ` • Lev ${position.leverage}` : ""}
+                </div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 20, opacity: 0.7 }}>P&L SNAPSHOT</div>
+                <div
+                  style={{
+                    fontSize: 64,
+                    fontWeight: 700,
+                    color: position.unrealizedPnl >= 0 ? "#4ade80" : "#f87171",
+                  }}
+                >
+                  {position.unrealizedPnl >= 0 ? "+" : "-"}
+                  {formatCurrency(Math.abs(position.unrealizedPnl))}
+                </div>
+                <div style={{ fontSize: 20, opacity: 0.7 }}>
+                  Entry {formatCurrency(position.entryPrice)} → Now {formatCurrency(position.currentPrice)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={footerStyle}>
+            <span>Alpha Arena • Autonomous AI Trading Competition</span>
+            <span>alphaarena.ai/share</span>
+          </div>
+        </div>
+      ),
+      size,
+    )
+  }
+
     const analysis = data.analysis
     const snippet = analysis.message.length > 320 ? `${analysis.message.slice(0, 320)}...` : analysis.message
     const badgeLabel = analysis.recommendation ? analysis.recommendation.toUpperCase() : "AI INSIGHT"

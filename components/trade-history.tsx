@@ -487,10 +487,11 @@ export function TradeHistory() {
                       <th className="px-4 py-3 text-left font-bold">MODEL</th>
                       <th className="px-4 py-3 text-left font-bold">SIDE</th>
                       <th className="px-4 py-3 text-left font-bold">COIN</th>
+                      <th className="px-4 py-3 text-left font-bold">POSITION VALUE</th>
                       <th className="px-4 py-3 text-left font-bold">LEVERAGE</th>
-                      <th className="px-4 py-3 text-left font-bold">NOTIONAL</th>
                       <th className="px-4 py-3 text-left font-bold">EXIT PLAN</th>
                       <th className="px-4 py-3 text-left font-bold">UNREAL P&L</th>
+                      <th className="px-4 py-3 text-left font-bold">SHARE</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -529,13 +530,13 @@ export function TradeHistory() {
                             <span className="font-bold">{position.coin}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 font-bold">{position.leverage}</td>
                         <td className="px-4 py-3 text-accent font-bold">
                           ${position.notional.toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           })}
                         </td>
+                        <td className="px-4 py-3 font-bold">{position.leverage}</td>
                         <td className="px-4 py-3">
                           <button className="px-3 py-1 border-2 border-black bg-white hover:bg-secondary/50 font-bold">
                             VIEW
@@ -550,6 +551,14 @@ export function TradeHistory() {
                               maximumFractionDigits: 2,
                             })}
                           </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <ShareButton
+                            type="position"
+                            id={position.id}
+                            title={`${position.model} ${position.side} position on ${position.coin}`}
+                            className="px-3 py-1 text-[10px]"
+                          />
                         </td>
                       </tr>
                     ))}

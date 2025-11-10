@@ -3,7 +3,7 @@ import { notFound } from "next/navigation"
 import { ShareView } from "./ShareView"
 import { getShareData, type ShareType } from "@/lib/share-data"
 
-const validTypes: ShareType[] = ["bot", "trade", "analysis"]
+const validTypes: ShareType[] = ["bot", "trade", "analysis", "position"]
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -46,6 +46,15 @@ function buildMetadataContent(type: ShareType, id: string, data: Awaited<ReturnT
     return {
       title: `${recommendation} Analysis | Alpha Arena`,
       description: data.analysis.message.slice(0, 140),
+      image: `${sharePath}/opengraph-image`,
+    }
+  }
+
+  if (data.type === "position" && data.position) {
+    const pnl = data.position.unrealizedPnl.toFixed(2)
+    return {
+      title: `${data.position.coin} ${data.position.side} Position | Alpha Arena`,
+      description: `Value $${data.position.positionValue.toFixed(2)} · Entry $${data.position.entryPrice.toFixed(2)} → Now $${data.position.currentPrice.toFixed(2)} · Unrealized P&L ${data.position.unrealizedPnl >= 0 ? "+" : ""}$${pnl}`,
       image: `${sharePath}/opengraph-image`,
     }
   }

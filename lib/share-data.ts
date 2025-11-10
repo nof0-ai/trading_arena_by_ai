@@ -4,7 +4,7 @@ import { getModelDisplayName } from "@/lib/model-info"
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-export type ShareType = "bot" | "trade" | "analysis"
+export type ShareType = "bot" | "trade" | "analysis" | "position"
 
 const providerAssets: Record<string, { icon: string; image: string }> = {
   "openai": { icon: "🟢", image: "/openai.png" },
@@ -116,6 +116,18 @@ export interface ShareAnalysisData {
   time: number
 }
 
+export interface SharePositionData {
+  coin: string
+  side: "LONG" | "SHORT"
+  quantity: number
+  positionValue: number
+  entryPrice: number
+  currentPrice: number
+  unrealizedPnl: number
+  leverage?: string
+  isTestnet: boolean
+}
+
 export interface ShareData {
   type: ShareType
   botName?: string
@@ -125,6 +137,7 @@ export interface ShareData {
   metrics?: ShareBotMetrics
   trade?: ShareTradeData
   analysis?: ShareAnalysisData
+  position?: SharePositionData
 }
 
 function getSupabaseServiceClient() {
@@ -418,6 +431,181 @@ export async function getShareData(type: ShareType, id: string): Promise<ShareDa
         recommendation: analysis.recommendation || undefined,
         confidence: analysis.confidence ?? undefined,
         time: new Date(analysis.created_at).getTime(),
+      },
+    }
+  }
+
+  if (type === "position") {
+    const separatorIndex = id.lastIndexOf("-")
+    if (separatorIndex <= 0 || separatorIndex >= id.length - 1) {
+      return null
+    }
+
+    const botId = id.slice(0, separatorIndex)
+    const coin = id.slice(separatorIndex + 1).toUpperCase()
+
+    const { data: botData } = await supabase
+      .from("encrypted_bots")
+      .select("encrypted_config, is_public")
+      .eq("id", botId)
+      .single()
+
+    if (!botData || !botData.is_public) {
+      return null
+    }
+
+    const config = JSON.parse(botData.encrypted_config)
+    const rawModel = typeof config.model === "string" ? config.model : ""
+    const displayModel = (() => {
+      const derived = getModelDisplayName(rawModel) ?? rawModel.trim()
+      return derived.length > 0 ? derived : undefined
+    })()
+    const { icon: modelIcon, image: modelImage } = getModelMetadata(rawModel)
+    const botName = typeof config.name === "string" && config.name.trim().length > 0 ? config.name : "Unknown Bot"
+    const apiWalletId = typeof config.apiWalletId === "string" ? config.apiWalletId : undefined
+
+    let isTestnet = false
+    if (apiWalletId) {
+      const { data: apiWallet } = await supabase
+        .from("api_wallets")
+        .select("network")
+        .eq("id", apiWalletId)
+        .single()
+      if (apiWallet && typeof apiWallet.network === "string") {
+        const normalized = apiWallet.network.toLowerCase()
+        isTestnet = normalized.includes("test")
+      }
+    }
+
+    const { data: tradesData } = await supabase
+      .from("trades")
+      .select("side, price, quantity, executed_at, leverage")
+      .eq("bot_id", botId)
+      .eq("coin", coin)
+      .eq("status", "FILLED")
+      .order("executed_at", { ascending: true })
+
+    if (!tradesData || tradesData.length === 0) {
+      return null
+    }
+
+    let totalQuantity = 0
+    let tradedAmountUsd = 0
+    let leverage: string | undefined
+
+    for (const trade of tradesData) {
+      const tradePrice = Number.parseFloat(String(trade.price))
+      const tradeQuantityRaw =
+        trade.quantity !== null && trade.quantity !== undefined
+          ? Number.parseFloat(String(trade.quantity))
+          : 0
+
+      if (!Number.isFinite(tradePrice) || !Number.isFinite(tradeQuantityRaw) || tradeQuantityRaw === 0) {
+        continue
+      }
+
+      const tradeQuantity = Math.abs(tradeQuantityRaw)
+      const tradeSizeUsd = tradeQuantity * tradePrice
+
+      if (trade.side === "BUY") {
+        if (totalQuantity === 0 || totalQuantity > 0) {
+          tradedAmountUsd += tradeSizeUsd
+          totalQuantity += tradeQuantity
+        } else {
+          const closeQuantity = Math.min(Math.abs(totalQuantity), tradeQuantity)
+          totalQuantity += closeQuantity
+          tradedAmountUsd -= closeQuantity * tradePrice
+          if (Math.abs(totalQuantity) < 0.0001) {
+            totalQuantity = 0
+            tradedAmountUsd = 0
+          }
+          if (totalQuantity === 0 && tradeQuantity > closeQuantity) {
+            const remainingQuantity = tradeQuantity - closeQuantity
+            tradedAmountUsd = remainingQuantity * tradePrice
+            totalQuantity = remainingQuantity
+          }
+        }
+      } else if (trade.side === "SELL") {
+        if (totalQuantity === 0 || totalQuantity < 0) {
+          tradedAmountUsd += tradeSizeUsd
+          totalQuantity -= tradeQuantity
+        } else {
+          const closeQuantity = Math.min(totalQuantity, tradeQuantity)
+          totalQuantity -= closeQuantity
+          tradedAmountUsd -= closeQuantity * tradePrice
+          if (Math.abs(totalQuantity) < 0.0001) {
+            totalQuantity = 0
+            tradedAmountUsd = 0
+          }
+          if (totalQuantity === 0 && tradeQuantity > closeQuantity) {
+            const remainingQuantity = tradeQuantity - closeQuantity
+            tradedAmountUsd = remainingQuantity * tradePrice
+            totalQuantity = -remainingQuantity
+          }
+        }
+      }
+
+      if (!leverage && trade.leverage) {
+        const leverageString = String(trade.leverage).trim()
+        if (leverageString.length > 0) {
+          leverage = leverageString.endsWith("X") ? leverageString : `${leverageString}X`
+        }
+      }
+    }
+
+    if (Math.abs(totalQuantity) < 0.0001) {
+      return null
+    }
+
+    const absQuantity = Math.abs(totalQuantity)
+    const entryValueUsd = Math.abs(tradedAmountUsd)
+    const entryPrice = absQuantity > 0 ? entryValueUsd / absQuantity : 0
+
+    const priceEndpoint = isTestnet
+      ? "https://api.hyperliquid-testnet.xyz/info"
+      : "https://api.hyperliquid.xyz/info"
+    const priceResponse = await fetch(priceEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ type: "allMids" }),
+    })
+
+    let currentPrice = Number.parseFloat(String(tradesData[tradesData.length - 1]?.price ?? entryPrice))
+    if (priceResponse.ok) {
+      const pricePayload = await priceResponse.json()
+      const priceCandidate = pricePayload[coin] ?? pricePayload[coin.toLowerCase()] ?? pricePayload[coin.toUpperCase()]
+      const parsedPrice = Number.parseFloat(String(priceCandidate))
+      if (Number.isFinite(parsedPrice) && parsedPrice > 0) {
+        currentPrice = parsedPrice
+      }
+    }
+
+    if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
+      currentPrice = entryPrice
+    }
+
+    const positionValue = currentPrice * absQuantity
+    const side = totalQuantity >= 0 ? "LONG" : "SHORT"
+    const unrealizedPnl = side === "LONG" ? positionValue - entryValueUsd : entryValueUsd - positionValue
+
+    return {
+      type: "position",
+      botName,
+      model: displayModel,
+      modelIcon,
+      modelImage,
+      position: {
+        coin,
+        side,
+        quantity: absQuantity,
+        positionValue,
+        entryPrice,
+        currentPrice,
+        unrealizedPnl,
+        leverage,
+        isTestnet,
       },
     }
   }

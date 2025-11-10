@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getShareData, type ShareType } from "@/lib/share-data"
 
-const validTypes: ShareType[] = ["bot", "trade", "analysis"]
+const validTypes: ShareType[] = ["bot", "trade", "analysis", "position"]
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)

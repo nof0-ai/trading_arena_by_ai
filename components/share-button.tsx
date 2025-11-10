@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Share2 } from "lucide-react"
 
 interface ShareButtonProps {
-  type: "bot" | "trade" | "analysis"
+  type: "bot" | "trade" | "analysis" | "position"
   id: string
   title?: string
   className?: string
@@ -34,8 +34,20 @@ interface ShareAnalysis {
   message: string
 }
 
+interface SharePosition {
+  coin: string
+  side: "LONG" | "SHORT"
+  quantity: number
+  positionValue: number
+  entryPrice: number
+  currentPrice: number
+  unrealizedPnl: number
+  leverage?: string
+  isTestnet: boolean
+}
+
 interface ShareResponse {
-  type: "bot" | "trade" | "analysis"
+  type: "bot" | "trade" | "analysis" | "position"
   botName?: string
   model?: string
   modelIcon?: string
@@ -43,6 +55,7 @@ interface ShareResponse {
   metrics?: ShareMetrics
   trade?: ShareTrade
   analysis?: ShareAnalysis
+  position?: SharePosition
 }
 
 function formatCurrency(value: number, fractionDigits = 2) {
@@ -80,6 +93,20 @@ function formatShareText(data: ShareResponse | null, fallback: string) {
   }
 
   if (data.type === "analysis" && data.analysis) {
+  if (data.type === "position" && data.position) {
+    const position = data.position
+    const sideLabel = position.side === "LONG" ? "LONG" : "SHORT"
+    const networkLabel = position.isTestnet ? "Testnet" : "Mainnet"
+    return (
+      `📊 ${data.modelEmoji || "🤖"} ${data.model || "AI"} ${sideLabel} position on ${position.coin}\n\n` +
+      `Size: ${position.quantity.toFixed(4)} ${position.coin} • Value: $${formatCurrency(position.positionValue)}\n` +
+      `Entry $${formatCurrency(position.entryPrice)} → Current $${formatCurrency(position.currentPrice)}\n` +
+      `Unrealized P&L: ${position.unrealizedPnl >= 0 ? "+" : ""}$${formatCurrency(position.unrealizedPnl)}\n` +
+      `${networkLabel}${position.leverage ? ` • Leverage ${position.leverage}` : ""}\n\n` +
+      `Track it on Alpha Arena`
+    )
+  }
+
     const analysis = data.analysis
     const snippet = analysis.message.length > 220 ? `${analysis.message.slice(0, 220)}...` : analysis.message
     const metaParts = []
