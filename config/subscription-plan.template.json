@@ -1,0 +1,25 @@
+{
+  "plan_id": "",
+  "product": {
+    "name": "",
+    "description": "",
+    "metadata": {}
+  },
+  "price": {
+    "currency": "",
+    "unit_amount": 0,
+    "recurring": {
+      "interval": "",
+      "interval_count": 0
+    },
+    "metadata": {}
+  },
+  "supabase": {
+    "display_name": "",
+    "status": "",
+    "features": {},
+    "limits": {},
+    "metadata": {}
+  }
+}
+

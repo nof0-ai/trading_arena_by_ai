@@ -7,6 +7,7 @@
     "dev": "next dev",
     "lint": "eslint .",
     "start": "next start",
+    "payment": "tsx scripts/payment.ts",
     "fetch-btc-candle": "tsx scripts/fetch-btc-candle.ts",
     "cron:server": "tsx scripts/cron-server.ts",
     "cron:start": "node scripts/cron-server.js",
