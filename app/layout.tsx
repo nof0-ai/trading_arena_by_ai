@@ -33,6 +33,20 @@ export default function RootLayout({
             })(window,document,'script','dataLayer','GTM-5RFWP9BP');
           `}
         </Script>
+        {/* Google tag (gtag.js) */}
+        <Script
+          id="ga-script"
+          src="https://www.googletagmanager.com/gtag/js?id=G-H1RMD3PKG4"
+          strategy="afterInteractive"
+        />
+        <Script id="ga-init" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-H1RMD3PKG4');
+          `}
+        </Script>
       </head>
       <body className={`font-mono antialiased`}>
         {/* Google Tag Manager (noscript) */}
