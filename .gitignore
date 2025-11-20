@@ -43,7 +43,7 @@ pm2-out.log
 
 # PM2
 .pm2/
-
+docs/payment-service
 
 /supabase
 logs

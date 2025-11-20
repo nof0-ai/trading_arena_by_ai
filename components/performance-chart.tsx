@@ -210,17 +210,21 @@ export function PerformanceChart() {
         ? 0
         : 0
 
-  const percentDomainMin = Math.floor(minValue / 10) * 10
-  const percentDomainMax = Math.ceil(maxValue / 10) * 10
+  // Calculate domain with 10% padding above and below
+  const range = maxValue - minValue || 1
+  const padding = range * 0.1
+  const domainMin = minValue - padding
+  const domainMax = maxValue + padding
+
   const yAxisDomain =
     viewMode === "%"
       ? [
-          percentDomainMin === percentDomainMax ? -10 : percentDomainMin,
-          percentDomainMin === percentDomainMax ? 10 : percentDomainMax,
+          domainMin === domainMax ? -10 : domainMin,
+          domainMin === domainMax ? 10 : domainMax,
         ]
       : [
-          0,
-          Math.ceil(Math.max(maxValue, 10000) / 5000) * 5000,
+          domainMin < 0 ? 0 : domainMin,
+          domainMax,
   ]
 
   if (isLoading) {
